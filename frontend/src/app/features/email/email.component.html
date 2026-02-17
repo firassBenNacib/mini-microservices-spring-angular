@@ -1,0 +1,24 @@
+<section class="card">
+  <div class="card-header">
+    <h2>Send Test Email</h2>
+    <button class="button secondary small" type="button" (click)="backToStatus()">Back</button>
+  </div>
+  <form class="form" (ngSubmit)="sendEmail()">
+    <label>
+      To
+      <input type="email" [(ngModel)]="mailTo" name="mailTo" required />
+    </label>
+    <label>
+      Subject
+      <input type="text" [(ngModel)]="mailSubject" name="mailSubject" required />
+    </label>
+    <label>
+      Text
+      <textarea rows="4" [(ngModel)]="mailText" name="mailText" required></textarea>
+    </label>
+    <p *ngIf="mailStatus" class="status">{{ mailStatus }}</p>
+    <button class="button" type="submit" [disabled]="loading">
+      {{ loading ? 'Sending…' : 'Send Email' }}
+    </button>
+  </form>
+</section>

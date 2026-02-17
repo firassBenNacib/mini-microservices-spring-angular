@@ -1,0 +1,21 @@
+services:
+  notification-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-notification:${IMAGE_TAG:-demo}
+
+  audit-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-audit:${IMAGE_TAG:-demo}
+
+  auth-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-auth:${IMAGE_TAG:-demo}
+
+  mailer-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-mailer:${IMAGE_TAG:-demo}
+
+  api-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-api:${IMAGE_TAG:-demo}
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-frontend:${IMAGE_TAG:-demo}
+
+  gateway:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-gateway:${IMAGE_TAG:-demo}

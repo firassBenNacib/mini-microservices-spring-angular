@@ -1,0 +1,35 @@
+services:
+  notification-service:
+    image: mini-spring-notification:${IMAGE_TAG:-demo}
+    build:
+      context: ./backend/notification-service
+
+  audit-service:
+    image: mini-spring-audit:${IMAGE_TAG:-demo}
+    build:
+      context: ./backend/audit-service
+
+  auth-service:
+    image: mini-spring-auth:${IMAGE_TAG:-demo}
+    build:
+      context: ./backend/auth-service
+
+  mailer-service:
+    image: mini-spring-mailer:${IMAGE_TAG:-demo}
+    build:
+      context: ./backend/mailer-service
+
+  api-service:
+    image: mini-spring-api:${IMAGE_TAG:-demo}
+    build:
+      context: ./backend/api-service
+
+  frontend:
+    image: mini-spring-frontend:${IMAGE_TAG:-demo}
+    build:
+      context: ./frontend
+
+  gateway:
+    image: mini-spring-gateway:${IMAGE_TAG:-demo}
+    build:
+      context: ./gateway

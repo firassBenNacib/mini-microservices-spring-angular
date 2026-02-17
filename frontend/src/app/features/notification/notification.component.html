@@ -1,0 +1,58 @@
+<section class="card">
+  <div class="card-header">
+    <h2>Send Test Notification</h2>
+    <button class="button secondary small" type="button" (click)="backToStatus()">Back</button>
+  </div>
+  <div class="notify-layout">
+    <form class="form" (ngSubmit)="sendNotification()">
+      <div class="phone-grid">
+        <label>
+          Country/Region
+          <select [(ngModel)]="notifyCountryCode" name="notifyCountryCode" required>
+            <option value="" disabled>Select country/region</option>
+            <option *ngFor="let entry of countryCodes" [value]="entry.code">{{ entry.name }} ({{ entry.code }})</option>
+          </select>
+        </label>
+        <label>
+          Number
+          <input
+            type="tel"
+            inputmode="numeric"
+            [(ngModel)]="notifyLocalNumber"
+            name="notifyLocalNumber"
+            pattern="^[0-9]{4,14}$"
+            placeholder="Enter number"
+            required
+          />
+        </label>
+      </div>
+      <label>
+        Category
+        <select [(ngModel)]="notifyCategory" name="notifyCategory">
+          <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+        </select>
+      </label>
+      <label>
+        Priority
+        <select [(ngModel)]="notifyPriority" name="notifyPriority">
+          <option *ngFor="let priority of priorities" [value]="priority">{{ priority }}</option>
+        </select>
+      </label>
+      <label>
+        Details (optional)
+        <textarea rows="4" [(ngModel)]="notifyDetails" name="notifyDetails"></textarea>
+      </label>
+      <p *ngIf="notifyStatus" class="status">{{ notifyStatus }}</p>
+      <button class="button" type="submit" [disabled]="loading">
+        {{ loading ? 'Sending…' : 'Send Notification' }}
+      </button>
+    </form>
+
+    <aside class="notify-preview">
+      <p class="eyebrow">Preview</p>
+      <h3>{{ computedSubject }}</h3>
+      <p class="muted sms-label">SMS Body</p>
+      <p class="preview-text">{{ computedText }}</p>
+    </aside>
+  </div>
+</section>

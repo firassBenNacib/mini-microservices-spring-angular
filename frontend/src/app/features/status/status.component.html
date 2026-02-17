@@ -1,0 +1,44 @@
+<section class="hero">
+  <div class="hero-card">
+    <p class="eyebrow">Status</p>
+    <h1>Microservices deployed and working</h1>
+    <p *ngIf="loadingMessage" class="hero-meta">Checking services...</p>
+    <p *ngIf="!loadingMessage && statusOk" class="hero-meta success">
+      All services reachable
+    </p>
+    <p *ngIf="!loadingMessage && !statusOk" class="hero-meta">
+      API status not available yet
+    </p>
+  </div>
+  <div class="hero-visual">
+    <img src="assets/chibi_with_docker_no_background.svg" alt="Docker mascot" />
+  </div>
+</section>
+
+<section class="card dashboard-card">
+  <div class="card-header">
+    <h2>Service Dashboard</h2>
+    <button class="button secondary small" type="button" (click)="refreshDashboard()">
+      Refresh
+    </button>
+  </div>
+  <p *ngIf="dashboardLoading" class="hero-meta">Refreshing dashboard...</p>
+  <p *ngIf="!dashboardLoading && lastDashboardCheck" class="hero-meta">
+    Last checked at {{ lastDashboardCheck }}
+  </p>
+
+  <div class="service-grid">
+    <article class="service-tile" *ngFor="let service of serviceStatuses">
+      <span class="service-name">{{ service.label }}</span>
+      <p class="service-detail" *ngIf="service.detail">{{ service.detail }}</p>
+      <span
+        class="service-badge"
+        [class.up]="service.state === 'up'"
+        [class.down]="service.state === 'down'"
+        [class.unknown]="service.state === 'unknown'"
+      >
+        {{ service.state }}
+      </span>
+    </article>
+  </div>
+</section>

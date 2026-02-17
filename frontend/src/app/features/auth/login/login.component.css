@@ -1,0 +1,22 @@
+.login-card {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.stack-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(31, 123, 217, 0.12);
+  color: #1f7bd9;
+}

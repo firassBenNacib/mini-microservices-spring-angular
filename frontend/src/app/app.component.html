@@ -1,0 +1,29 @@
+<div class="page">
+  <nav class="nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <img src="assets/docker-icon.svg" alt="Docker" />
+      </div>
+      <div>
+        <div class="brand-title">DevOps Demo</div>
+        <div class="brand-subtitle">Docker microservices dashboard</div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <a *ngIf="isAuthed" routerLink="/" class="link">Status</a>
+      <a *ngIf="isAuthed" routerLink="/email" class="link">Send Email</a>
+      <a *ngIf="isAuthed" routerLink="/notification" class="link">Send Notification</a>
+      <a *ngIf="isAuthed" routerLink="/audit" class="link">Audit Events</a>
+      <button *ngIf="isAuthed" class="button ghost" (click)="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <main class="content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="footer">
+    <span class="footer-title">{{ footerTitle }}</span>
+    <span class="footer-meta">Spring/Angular stack</span>
+  </footer>
+</div>

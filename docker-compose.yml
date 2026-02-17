@@ -1,0 +1,256 @@
+x-common-env: &common-env
+  APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+
+x-jwt-env: &jwt-env
+  APP_JWT_SECRET: ${APP_JWT_SECRET}
+  APP_JWT_EXPIRATION_SECONDS: ${APP_JWT_EXPIRATION_SECONDS:-3600}
+
+x-demo-user-env: &demo-user-env
+  APP_DEMO_USER_EMAIL: ${APP_DEMO_USER_EMAIL}
+  APP_DEMO_USER_PASSWORD: ${APP_DEMO_USER_PASSWORD}
+
+x-db-env: &db-env
+  SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+  SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+  SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+  SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+
+x-audit-env: &audit-env
+  AUDIT_URL: ${AUDIT_URL:-http://audit-service:8084/audit/events}
+  AUDIT_API_KEY: ${AUDIT_API_KEY}
+  AUDIT_TIMEOUT_MS: ${AUDIT_TIMEOUT_MS:-2000}
+
+x-mailer-env: &mailer-env
+  MAILER_URL: ${MAILER_URL:-http://mailer-service:8083/send}
+  MAILER_API_KEY: ${MAILER_API_KEY}
+  MAILER_TIMEOUT_MS: ${MAILER_TIMEOUT_MS:-5000}
+
+x-notify-env: &notify-env
+  NOTIFY_URL: ${NOTIFY_URL:-http://notification-service:8090/notify}
+  NOTIFY_API_KEY: ${NOTIFY_API_KEY}
+  NOTIFY_TIMEOUT_MS: ${NOTIFY_TIMEOUT_MS:-3000}
+
+x-mail-env: &mail-env
+  SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
+  SPRING_MAIL_PORT: ${SPRING_MAIL_PORT}
+  SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+  SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+  SPRING_MAIL_PROTOCOL: ${SPRING_MAIL_PROTOCOL}
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH}
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE}
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE}
+  SPRING_MAIL_PROPERTIES_MAIL_SMTP_DEBUG: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_DEBUG}
+  SPRING_MAIL_FROM: ${SPRING_MAIL_FROM}
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-service-security: &service-security
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+
+x-readonly-runtime: &readonly-runtime
+  read_only: true
+  tmpfs:
+    - /tmp
+
+x-readonly-nginx: &readonly-nginx
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /var/cache/nginx
+    - /var/run
+
+services:
+  mysql:
+    image: mysql@sha256:99d774bf02a48a1bb1c599920d2571946d31e5940b854b02737d5e95c184358f
+    container_name: spring-demo-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-devops_demo}
+      MYSQL_USER: ${SPRING_DATASOURCE_USERNAME:-devops_app}
+      MYSQL_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+    volumes:
+      - spring-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required} >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    cpus: "2.0"
+    mem_limit: "2g"
+    logging: *default-logging
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit@sha256:7c38788069433ba9d2d9131abac8d17da0fb18f09b689207ec7a773dcb8d6eee
+    container_name: spring-demo-mailpit
+    <<: *service-security
+    cpus: "0.50"
+    mem_limit: "256m"
+    logging: *default-logging
+    restart: unless-stopped
+
+  notification-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-notification@sha256:55e4e98149e502bebd5d6d4920755cadb372c018d7c9d7253dd47b11d0479a2a
+    env_file:
+      - ./.env
+    environment:
+      PORT: 8090
+      NOTIFY_API_KEY: ${NOTIFY_API_KEY}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER}
+      TWILIO_TIMEOUT_MS: ${TWILIO_TIMEOUT_MS:-5000}
+      TWILIO_STATUS_CALLBACK_URL: ${TWILIO_STATUS_CALLBACK_URL:-}
+      LOG_LEVEL: ${NOTIFY_LOG_LEVEL:-INFO}
+    <<: [*service-security, *readonly-runtime]
+    cpus: "0.50"
+    mem_limit: "512m"
+    logging: *default-logging
+    restart: unless-stopped
+
+  audit-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-audit@sha256:a49764a4fc45226ceae7ebe86e986589caab73d13dc1234323db9add7bf57963
+    env_file:
+      - ./.env
+    environment:
+      SERVER_PORT: 8084
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/devops_demo}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+      AUDIT_API_KEY: ${AUDIT_API_KEY}
+    <<: [*service-security, *readonly-runtime]
+    cpus: "1.0"
+    mem_limit: "1g"
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8084/audit/health >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 150s
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  auth-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-auth@sha256:7d5450881ce9c679a20a2fbfe2f4d6e96bba70cc33aaff489e60d38d297a2806
+    env_file:
+      - ./.env
+    environment:
+      SERVER_PORT: 8081
+      <<: [*common-env, *jwt-env, *demo-user-env, *db-env, *audit-env]
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/devops_demo}
+      AUDIT_URL: ${AUDIT_URL:-http://audit-service:8084/audit/events}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/auth/health >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    <<: [*service-security, *readonly-runtime]
+    cpus: "1.0"
+    mem_limit: "1g"
+    logging: *default-logging
+    depends_on:
+      mysql:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mailer-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-mailer@sha256:2d7676683857ae4872d711d3d10d1bc667a47fdf4d288c2d4dc4484e4656b796
+    env_file:
+      - ./.env
+    environment:
+      SERVER_PORT: 8083
+      <<: [*common-env, *mail-env]
+      MAILER_API_KEY: ${MAILER_API_KEY}
+    <<: [*service-security, *readonly-runtime]
+    cpus: "1.0"
+    mem_limit: "1g"
+    logging: *default-logging
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api-service:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-api@sha256:25e2716216ceb93741163f217953d4df1f1e8ee76efc3d66cfda5dab790f3259
+    env_file:
+      - ./.env
+    environment:
+      SERVER_PORT: 8082
+      <<: [*common-env, *jwt-env, *mailer-env, *audit-env, *notify-env]
+      MAILER_URL: ${MAILER_URL:-http://mailer-service:8083/send}
+      AUDIT_URL: ${AUDIT_URL:-http://audit-service:8084/audit/events}
+      NOTIFY_URL: ${NOTIFY_URL:-http://notification-service:8090/notify}
+    <<: [*service-security, *readonly-runtime]
+    cpus: "1.0"
+    mem_limit: "1g"
+    logging: *default-logging
+    depends_on:
+      mailer-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-frontend@sha256:424df0ab9de70fb83a05695e57d5da17a55bf24034aef3cee9d2b66bdbdcc35f
+    expose:
+      - "8080"
+    <<: [*service-security, *readonly-nginx]
+    cpus: "0.50"
+    mem_limit: "512m"
+    logging: *default-logging
+    restart: unless-stopped
+
+  gateway:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-gateway@sha256:61100d656ea573f2dfd0c76a244860512c8ade322fdb5293795dd25e3e7aef74
+    ports:
+      - "${SPRING_GATEWAY_BIND_HOST:-127.0.0.1}:${SPRING_FRONTEND_PORT:-8080}:8080"
+    <<: [*service-security, *readonly-nginx]
+    cpus: "0.50"
+    mem_limit: "512m"
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      frontend:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      api-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+      mailer-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  spring-mysql-data:

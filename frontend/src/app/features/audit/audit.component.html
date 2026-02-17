@@ -1,0 +1,15 @@
+<section class="card">
+  <div class="card-header">
+    <h2>Recent Audit Events</h2>
+    <button class="button secondary small" type="button" (click)="loadAudit()">Refresh</button>
+  </div>
+  <p *ngIf="loadingAudit">Loading...</p>
+  <p *ngIf="!loadingAudit && !auditEvents.length" class="message">No audit events yet.</p>
+  <ul *ngIf="!loadingAudit && auditEvents.length" class="audit-list">
+    <li *ngFor="let event of auditEvents">
+      <div class="audit-title">{{ event.eventType }} - {{ event.actor || 'unknown' }}</div>
+      <div class="audit-meta">{{ event.source || 'service' }} • {{ event.createdAt || 'unknown time' }}</div>
+      <div class="audit-details" *ngIf="event.details">{{ event.details }}</div>
+    </li>
+  </ul>
+</section>
