@@ -32,7 +32,7 @@ A mini microservices application with Spring Boot backends, an Angular frontend,
 ```bash
 git clone https://github.com/firassBenNacib/mini-microservices-spring-angular.git
 cd mini-microservices-spring-angular
-cp .env.example .env
+cp .env.local.example .env
 ```
 
 Update `.env` with real values before running the application.
@@ -112,7 +112,6 @@ Use separate environment files by runtime:
 
 - [`.env.local.example`](./.env.local.example): local Docker Compose development
 - [`.env.cloud-provider.example`](./.env.cloud-provider.example): cloud deployment runtime reference
-- [`.env.example`](./.env.example): backward-compatible generic example
 
 For local work:
 
@@ -184,7 +183,6 @@ Safe to push to a public repository:
 - `scripts/`
 - `.github/workflows/`
 - example environment contracts:
-  - `.env.example`
   - `.env.local.example`
   - `.env.cloud-provider.example`
 
