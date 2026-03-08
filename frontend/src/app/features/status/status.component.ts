@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { ApiService } from '@app/data-access/api.service';
-import { environment } from '@environments/environment';
+import { firstValueFrom } from 'rxjs';
+import { ApiService, DashboardServiceStatus } from '@app/data-access/api.service';
 
 type HealthState = 'up' | 'down' | 'unknown';
 
@@ -55,7 +55,7 @@ export class StatusComponent implements OnInit, OnDestroy {
   checkStatus(): void {
     this.loadingMessage = true;
     this.statusOk = false;
-    this.api.getMessage().subscribe({
+    this.api.getHealth().subscribe({
       next: () => {
         this.statusOk = true;
         this.loadingMessage = false;
@@ -72,20 +72,24 @@ export class StatusComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const targets = this.getHealthTargets();
     this.dashboardRefreshInFlight = true;
     this.dashboardLoading = true;
-    this.serviceStatuses = targets.map((target) => ({
-      key: target.key,
-      label: target.label,
-      state: 'unknown',
-      detail: 'checking'
-    }));
+    this.serviceStatuses = this.placeholderStatuses();
 
     try {
-      const checks = await Promise.all(targets.map((target) => this.checkService(target)));
-      this.serviceStatuses = checks;
+      const dashboard = await firstValueFrom(this.api.getDashboardStatus());
+      this.serviceStatuses = [
+        ...dashboard.services,
+        {
+          key: 'frontend',
+          label: 'Frontend UI',
+          state: 'up',
+          detail: ''
+        }
+      ];
       this.lastDashboardCheck = new Date().toLocaleTimeString();
+    } catch {
+      this.serviceStatuses = this.placeholderStatuses();
     } finally {
       this.dashboardLoading = false;
       this.dashboardRefreshInFlight = false;
@@ -109,75 +113,24 @@ export class StatusComponent implements OnInit, OnDestroy {
     this.pollTimerId = null;
   }
 
-  private getHealthTargets(): Array<{ key: string; label: string; url?: string }> {
+  private placeholderStatuses(): ServiceStatus[] {
     return [
-      { key: 'gateway', label: 'Gateway', url: this.toHealthUrl(environment.gatewayUrl) },
-      { key: 'auth', label: 'Auth Service', url: this.toHealthUrl(environment.authUrl) },
-      { key: 'api', label: 'API Service', url: this.toHealthUrl(environment.apiUrl) },
-      { key: 'audit', label: 'Audit Service', url: this.toHealthUrl(environment.auditUrl) },
-      { key: 'mailer', label: 'Mailer Service', url: this.toHealthUrl(environment.mailerUrl) },
-      { key: 'notify', label: 'Notification Service', url: this.toHealthUrl(environment.notifyUrl) },
-      { key: 'frontend', label: 'Frontend UI' }
+      this.unknownStatus('gateway', 'Gateway'),
+      this.unknownStatus('auth', 'Auth Service'),
+      this.unknownStatus('api', 'API Service'),
+      this.unknownStatus('audit', 'Audit Service'),
+      this.unknownStatus('mailer', 'Mailer Service'),
+      this.unknownStatus('notify', 'Notification Service'),
+      this.unknownStatus('frontend', 'Frontend UI')
     ];
   }
 
-  private toHealthUrl(base: string): string {
-    const normalized = (base || '').replace(/\/+$/, '');
-    return `${normalized}/health`;
-  }
-
-  private async checkService(target: { key: string; label: string; url?: string }): Promise<ServiceStatus> {
-    if (!target.url) {
-      return {
-        key: target.key,
-        label: target.label,
-        state: 'up',
-        detail: ''
-      };
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    try {
-      const response = await fetch(target.url, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-
-      if (!response.ok) {
-        return {
-          key: target.key,
-          label: target.label,
-          state: 'down',
-          detail: `HTTP ${response.status}`
-        };
-      }
-
-      let detail = 'ok';
-      try {
-        const body = (await response.json()) as { status?: string };
-        if (body && typeof body.status === 'string' && body.status.trim()) {
-          detail = body.status;
-        }
-      } catch {
-        detail = 'ok';
-      }
-
-      return {
-        key: target.key,
-        label: target.label,
-        state: 'up',
-        detail: detail === 'ok' ? '' : detail
-      };
-    } catch {
-      return {
-        key: target.key,
-        label: target.label,
-        state: 'unknown',
-        detail: 'unreachable or timeout'
-      };
-    } finally {
-      clearTimeout(timeout);
-    }
+  private unknownStatus(key: string, label: string): DashboardServiceStatus {
+    return {
+      key,
+      label,
+      state: 'unknown',
+      detail: 'unreachable or timeout'
+    };
   }
 }

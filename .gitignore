@@ -1,7 +1,10 @@
 .env
 .env.*
 !.env.example
+!.env.local.example
+!.env.cloud-provider.example
 
+.artifacts/
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/

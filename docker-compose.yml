@@ -1,6 +1,3 @@
-x-common-env: &common-env
-  APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
-
 x-jwt-env: &jwt-env
   APP_JWT_SECRET: ${APP_JWT_SECRET}
   APP_JWT_EXPIRATION_SECONDS: ${APP_JWT_EXPIRATION_SECONDS:-3600}
@@ -130,7 +127,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
       AUDIT_API_KEY: ${AUDIT_API_KEY}
     <<: [*service-security, *readonly-runtime]
     cpus: "1.0"
@@ -153,7 +149,7 @@ services:
       - ./.env
     environment:
       SERVER_PORT: 8081
-      <<: [*common-env, *jwt-env, *demo-user-env, *db-env, *audit-env]
+      <<: [*jwt-env, *demo-user-env, *db-env, *audit-env]
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/devops_demo}
       AUDIT_URL: ${AUDIT_URL:-http://audit-service:8084/audit/events}
     healthcheck:
@@ -179,7 +175,7 @@ services:
       - ./.env
     environment:
       SERVER_PORT: 8083
-      <<: [*common-env, *mail-env]
+      <<: [*mail-env]
       MAILER_API_KEY: ${MAILER_API_KEY}
     <<: [*service-security, *readonly-runtime]
     cpus: "1.0"
@@ -196,7 +192,7 @@ services:
       - ./.env
     environment:
       SERVER_PORT: 8082
-      <<: [*common-env, *jwt-env, *mailer-env, *audit-env, *notify-env]
+      <<: [*jwt-env, *mailer-env, *audit-env, *notify-env]
       MAILER_URL: ${MAILER_URL:-http://mailer-service:8083/send}
       AUDIT_URL: ${AUDIT_URL:-http://audit-service:8084/audit/events}
       NOTIFY_URL: ${NOTIFY_URL:-http://notification-service:8090/notify}
@@ -227,12 +223,14 @@ services:
     image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/mini-spring-gateway@sha256:61100d656ea573f2dfd0c76a244860512c8ade322fdb5293795dd25e3e7aef74
     ports:
       - "${SPRING_GATEWAY_BIND_HOST:-127.0.0.1}:${SPRING_FRONTEND_PORT:-8080}:8080"
+    environment:
+      FRONTEND_UPSTREAM: frontend:8080
     <<: [*service-security, *readonly-nginx]
     cpus: "0.50"
     mem_limit: "512m"
     logging: *default-logging
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/gateway/health >/dev/null 2>&1"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -1,6 +1,8 @@
 package com.demo.devops.apiservice.client;
 
 import com.demo.devops.apiservice.dto.NotificationRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -13,6 +15,8 @@ import org.springframework.web.client.RestTemplate;
 
 @Component
 public class NotificationClient {
+  private static final Logger LOG = LoggerFactory.getLogger(NotificationClient.class);
+
   private final RestTemplate restTemplate;
   private final String notifyUrl;
   private final String apiKey;
@@ -39,6 +43,7 @@ public class NotificationClient {
       restTemplate.postForEntity(notifyUrl, entity, String.class);
       return true;
     } catch (RestClientException ex) {
+      LOG.warn("notification_request_failed url={} message={}", notifyUrl, ex.getMessage());
       return false;
     }
   }

@@ -2,6 +2,7 @@ package com.demo.devops.authservice.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -37,5 +38,13 @@ public class JwtService {
 
   public long getExpirationSeconds() {
     return expirationSeconds;
+  }
+
+  public Claims parseToken(String token) {
+    return Jwts.parserBuilder()
+        .setSigningKey(secretKey)
+        .build()
+        .parseClaimsJws(token)
+        .getBody();
   }
 }

@@ -1,50 +1,62 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, map, tap } from 'rxjs';
+import { BehaviorSubject, catchError, map, of, tap } from 'rxjs';
 import { environment } from '@environments/environment';
 
-interface LoginResponse {
-  token: string;
+export interface AuthSession {
+  authenticated: boolean;
   expiresIn: number;
   user: {
     email: string;
     role: string;
-  };
+  } | null;
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly tokenKey = 'demo_auth_token';
-  private readonly tokenSubject = new BehaviorSubject<string | null>(
-    localStorage.getItem(this.tokenKey)
-  );
+  private readonly anonymousSession: AuthSession = {
+    authenticated: false,
+    expiresIn: 0,
+    user: null
+  };
 
-  readonly token$ = this.tokenSubject.asObservable();
+  private readonly sessionSubject = new BehaviorSubject<AuthSession>(this.anonymousSession);
+
+  readonly session$ = this.sessionSubject.asObservable();
 
   constructor(private http: HttpClient) {}
 
   isAuthenticated(): boolean {
-    return !!this.tokenSubject.value;
+    return this.sessionSubject.value.authenticated;
   }
 
-  getToken(): string | null {
-    return this.tokenSubject.value;
+  ensureSession() {
+    return this.http.get<AuthSession>(`${environment.authUrl}/session`).pipe(
+      tap((session) => this.sessionSubject.next(session)),
+      catchError(() => {
+        this.sessionSubject.next(this.anonymousSession);
+        return of(this.anonymousSession);
+      })
+    );
   }
 
   login(email: string, password: string) {
     return this.http
-      .post<LoginResponse>(`${environment.authUrl}/login`, { email, password })
+      .post<AuthSession>(`${environment.authUrl}/login`, { email, password })
       .pipe(
-        tap((res) => {
-          localStorage.setItem(this.tokenKey, res.token);
-          this.tokenSubject.next(res.token);
-        }),
+        tap((session) => this.sessionSubject.next(session)),
         map(() => void 0)
       );
   }
 
-  logout(): void {
-    localStorage.removeItem(this.tokenKey);
-    this.tokenSubject.next(null);
+  logout() {
+    return this.http.post(`${environment.authUrl}/logout`, {}).pipe(
+      tap(() => this.sessionSubject.next(this.anonymousSession)),
+      catchError(() => {
+        this.sessionSubject.next(this.anonymousSession);
+        return of(void 0);
+      }),
+      map(() => void 0)
+    );
   }
 }

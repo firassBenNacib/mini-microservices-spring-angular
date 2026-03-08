@@ -16,19 +16,24 @@ export class AppComponent {
   private readonly destroyRef = inject(DestroyRef);
   isAuthed = false;
   footerTitle = 'Status';
+  isLoginRoute = false;
 
   constructor(
     private auth: AuthService,
     private router: Router
   ) {
     this.isAuthed = this.auth.isAuthenticated();
-    this.auth.token$
+    this.auth.ensureSession()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((token) => {
-        this.isAuthed = !!token;
+      .subscribe();
+    this.auth.session$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((session) => {
+        this.isAuthed = session.authenticated;
       });
 
     this.footerTitle = this.resolveTitle(this.router.url);
+    this.isLoginRoute = this.router.url.startsWith('/login');
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -36,12 +41,14 @@ export class AppComponent {
       )
       .subscribe((event) => {
         this.footerTitle = this.resolveTitle(event.urlAfterRedirects);
+        this.isLoginRoute = event.urlAfterRedirects.startsWith('/login');
       });
   }
 
   logout(): void {
-    this.auth.logout();
-    this.router.navigateByUrl('/login');
+    this.auth.logout().subscribe(() => {
+      this.router.navigateByUrl('/login');
+    });
   }
 
   private resolveTitle(url: string): string {

@@ -1,5 +1,7 @@
 package com.demo.devops.authservice.client;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -12,6 +14,8 @@ import org.springframework.web.client.RestTemplate;
 
 @Component
 public class AuditClient {
+  private static final Logger LOG = LoggerFactory.getLogger(AuditClient.class);
+
   private final RestTemplate restTemplate;
   private final String auditUrl;
   private final String apiKey;
@@ -37,7 +41,9 @@ public class AuditClient {
 
     try {
       restTemplate.postForEntity(auditUrl, entity, String.class);
-    } catch (RestClientException ignored) {}
+    } catch (RestClientException ex) {
+      LOG.warn("audit_event_delivery_failed eventType={} source={} actor={} message={}", eventType, source, actor, ex.getMessage());
+    }
   }
 
   private record AuditEventRequest(String eventType, String actor, String details, String source) {}
