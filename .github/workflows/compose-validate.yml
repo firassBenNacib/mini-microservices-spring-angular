@@ -14,10 +14,10 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Validate base compose
-        run: docker compose --env-file .env.example -f docker-compose.yml config --services
+        run: docker compose --env-file .env.local.example -f docker-compose.yml config --services
 
       - name: Validate images overlay
-        run: docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.images.yml config --services
+        run: docker compose --env-file .env.local.example -f docker-compose.yml -f docker-compose.images.yml config --services
 
       - name: Validate build overlay
-        run: docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.build.yml config --services
+        run: docker compose --env-file .env.local.example -f docker-compose.yml -f docker-compose.build.yml config --services
