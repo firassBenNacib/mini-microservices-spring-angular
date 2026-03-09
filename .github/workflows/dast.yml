@@ -1,0 +1,47 @@
+name: DAST
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Optional override for the scan target URL
+        required: false
+        type: string
+  schedule:
+    - cron: "0 2 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast-${{ github.ref || github.run_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DAST_TARGET_URL: ${{ inputs.target_url != '' && inputs.target_url || vars.DAST_TARGET_URL }}
+    steps:
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
+
+      - name: Validate DAST target
+        run: |
+          test -n "${DAST_TARGET_URL}" || {
+            echo "::error::Set repository variable DAST_TARGET_URL or provide workflow_dispatch input target_url."
+            exit 1
+          }
+
+      - name: Run OWASP ZAP baseline
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
+        with:
+          target: ${{ env.DAST_TARGET_URL }}
+          allow_issue_writing: false
+          fail_action: true
+          cmd_options: "-a"

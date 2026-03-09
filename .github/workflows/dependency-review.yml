@@ -1,0 +1,30 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    paths:
+      - "backend/**/pom.xml"
+      - "backend/**/package.json"
+      - "backend/**/package-lock.json"
+      - "backend/**/requirements.txt"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - ".github/workflows/dependency-review.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependency review
+        uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9 # v4.7.1
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always

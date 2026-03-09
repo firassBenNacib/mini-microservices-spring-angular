@@ -1,26 +1,142 @@
 name: Security Baseline
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+    paths:
+      - ".github/actions/**"
+      - ".github/workflows/security-baseline.yml"
+      - ".github/workflows/codeql.yml"
+      - ".github/workflows/container-security.yml"
+      - ".github/workflows/dast.yml"
+      - "backend/**"
+      - "frontend/**"
+      - "gateway/**"
+      - "scripts/**"
+      - "docker-compose*.yml"
   pull_request:
+    paths:
+      - ".github/actions/**"
+      - ".github/workflows/security-baseline.yml"
+      - ".github/workflows/codeql.yml"
+      - ".github/workflows/container-security.yml"
+      - ".github/workflows/dast.yml"
+      - "backend/**"
+      - "frontend/**"
+      - "gateway/**"
+      - "scripts/**"
+      - "docker-compose*.yml"
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-baseline-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  secret-scan:
+  gitleaks:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
+        with:
+          fetch_depth: 0
 
-      - name: Trivy secret scan (non-blocking baseline)
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # 0.24.0
+      - name: Run gitleaks
+        id: gitleaks
         continue-on-error: true
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        with:
+          args: "--redact --no-banner --report-format sarif --report-path gitleaks.sarif"
+
+      - name: Upload gitleaks SARIF
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+      - name: Fail if gitleaks detected secrets
+        if: steps.gitleaks.outcome == 'failure'
+        run: |
+          echo "Gitleaks detected one or more secrets."
+          exit 1
+
+  trivy-secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
+        with:
+          fetch_depth: 0
+
+      - name: Trivy secret scan
+        id: trivy_secrets
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # 0.24.0
         with:
           scan-type: fs
           scan-ref: .
           scanners: secret
-          format: table
+          format: sarif
+          output: trivy-secrets.sarif
           exit-code: "1"
+          hide-progress: true
+
+      - name: Upload Trivy secrets SARIF
+        if: always() && hashFiles('trivy-secrets.sarif') != ''
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        with:
+          sarif_file: trivy-secrets.sarif
+          category: trivy-secrets
+
+      - name: Fail if Trivy detected secrets
+        if: steps.trivy_secrets.outcome == 'failure'
+        run: |
+          echo "Trivy detected one or more secrets."
+          exit 1
+
+  trivy-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
+
+      - name: Trivy config scan
+        id: trivy_config
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # 0.24.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          hide-progress: true
+
+      - name: Upload Trivy config SARIF
+        if: always() && hashFiles('trivy-config.sarif') != ''
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+      - name: Fail if Trivy detected high-risk misconfiguration
+        if: steps.trivy_config.outcome == 'failure'
+        run: |
+          echo "Trivy detected one or more high-risk misconfigurations."
+          exit 1

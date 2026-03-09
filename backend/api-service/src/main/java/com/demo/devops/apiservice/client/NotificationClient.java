@@ -12,6 +12,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import java.util.Objects;
 
 @Component
 public class NotificationClient {
@@ -26,8 +27,8 @@ public class NotificationClient {
       @Value("${notify.url}") String notifyUrl,
       @Value("${notify.api-key}") String apiKey,
       @Value("${notify.timeout-ms}") long timeoutMs) {
-    this.notifyUrl = notifyUrl;
-    this.apiKey = apiKey;
+    this.notifyUrl = Objects.requireNonNull(notifyUrl, "notify.url must not be null");
+    this.apiKey = Objects.requireNonNull(apiKey, "notify.api-key must not be null");
     this.restTemplate = builder
         .requestFactory(() -> buildRequestFactory(timeoutMs))
         .build();
@@ -36,11 +37,14 @@ public class NotificationClient {
   public boolean send(NotificationRequest request) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("x-notify-key", apiKey);
+    headers.set("x-notify-key", Objects.requireNonNull(apiKey, "notify.api-key must not be null"));
 
     HttpEntity<NotificationRequest> entity = new HttpEntity<>(request, headers);
     try {
-      restTemplate.postForEntity(notifyUrl, entity, String.class);
+      restTemplate.postForEntity(
+          Objects.requireNonNull(notifyUrl, "notify.url must not be null"),
+          entity,
+          String.class);
       return true;
     } catch (RestClientException ex) {
       LOG.warn("notification_request_failed url={} message={}", notifyUrl, ex.getMessage());

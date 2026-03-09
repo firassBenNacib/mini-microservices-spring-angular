@@ -1,0 +1,155 @@
+name: _Publish Images
+
+on:
+  workflow_call:
+    inputs:
+      registry_provider:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+      push_latest:
+        required: false
+        type: boolean
+        default: false
+      dockerhub_username:
+        required: false
+        type: string
+        default: ""
+      dockerhub_namespace:
+        required: false
+        type: string
+        default: ""
+      cloud_provider_region:
+        required: false
+        type: string
+        default: ""
+      cloud_provider_role_to_assume:
+        required: false
+        type: string
+        default: ""
+      image_namespace:
+        required: false
+        type: string
+        default: microservices
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-${{ inputs.registry_provider }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service_name: auth-service
+            context: backend/auth-service
+            dockerhub_image_name: mini-spring-auth
+            ecr_repo_name: auth-service
+          - service_name: api-service
+            context: backend/api-service
+            dockerhub_image_name: mini-spring-api
+            ecr_repo_name: api-service
+          - service_name: audit-service
+            context: backend/audit-service
+            dockerhub_image_name: mini-spring-audit
+            ecr_repo_name: audit-service
+          - service_name: mailer-service
+            context: backend/mailer-service
+            dockerhub_image_name: mini-spring-mailer
+            ecr_repo_name: mailer-service
+          - service_name: notification-service
+            context: backend/notification-service
+            dockerhub_image_name: mini-spring-notification
+            ecr_repo_name: notification-service
+          - service_name: gateway
+            context: gateway
+            dockerhub_image_name: mini-spring-gateway
+            ecr_repo_name: gateway
+          - service_name: frontend
+            context: frontend
+            dockerhub_image_name: mini-spring-frontend
+            ecr_repo_name: frontend
+    steps:
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
+
+      - name: Validate publish configuration
+        run: |
+          set -euo pipefail
+          case "${{ inputs.registry_provider }}" in
+            dockerhub)
+              test -n "${{ inputs.dockerhub_username }}" || { echo "::error::Set repository variable DOCKERHUB_USERNAME."; exit 1; }
+              test -n "${{ inputs.dockerhub_namespace }}" || { echo "::error::Set repository variable DOCKERHUB_NAMESPACE."; exit 1; }
+              ;;
+            ecr)
+              test -n "${{ inputs.cloud_provider_region }}" || { echo "::error::Set repository variable CLOUD_PROVIDER_REGION."; exit 1; }
+              test -n "${{ inputs.cloud_provider_role_to_assume }}" || { echo "::error::Set repository variable CLOUD_PROVIDER_ROLE_TO_ASSUME."; exit 1; }
+              ;;
+            *)
+              echo "::error::Unsupported registry_provider '${{ inputs.registry_provider }}'."
+              exit 1
+              ;;
+          esac
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to registry
+        uses: ./.github/actions/registry-login
+        with:
+          registry_provider: ${{ inputs.registry_provider }}
+          dockerhub_username: ${{ inputs.dockerhub_username }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN || '' }}
+          cloud_provider_region: ${{ inputs.cloud_provider_region }}
+          cloud_provider_role_to_assume: ${{ inputs.cloud_provider_role_to_assume }}
+
+      - name: Ensure ECR repository exists
+        if: inputs.registry_provider == 'ecr'
+        run: |
+          repo_name="${{ inputs.image_namespace }}/${{ matrix.ecr_repo_name }}"
+          aws ecr describe-repositories --region "${{ inputs.cloud_provider_region }}" --repository-names "${repo_name}" >/dev/null 2>&1 || \
+            aws ecr create-repository --region "${{ inputs.cloud_provider_region }}" --repository-name "${repo_name}" >/dev/null
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.registry_provider }}" == "dockerhub" ]]; then
+            base="${{ inputs.dockerhub_namespace }}/${{ matrix.dockerhub_image_name }}"
+          else
+            account_id="$(aws sts get-caller-identity --query Account --output text)"
+            base="${account_id}.dkr.ecr.${{ inputs.cloud_provider_region }}.amazonaws.com/${{ inputs.image_namespace }}/${{ matrix.ecr_repo_name }}"
+          fi
+
+          tags="${base}:${{ inputs.image_tag }}"
+          if [[ "${{ inputs.push_latest }}" == "true" ]]; then
+            tags="${tags},${base}:latest"
+          fi
+
+          echo "tags=${tags}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          provenance: false
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha,scope=publish-${{ matrix.service_name }}
+          cache-to: type=gha,mode=max,scope=publish-${{ matrix.service_name }}

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: create_aws_secrets_from_env.sh --environment <prod|nonprod> [--env-file <path>] [--region <aws-region>]
+Usage: create_aws_secrets_from_env.sh --environment <name> [--env-file <path>] [--region <cloud-region>]
 
 Creates or updates the application Secrets Manager entries from the local .env file and
 prints a paste-ready Terraform snippet for ecs_services.<service>.secret_arns values.
@@ -41,8 +41,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "${ENVIRONMENT}" != "prod" && "${ENVIRONMENT}" != "nonprod" ]]; then
-  echo "--environment must be prod or nonprod" >&2
+if [[ -z "${ENVIRONMENT}" ]]; then
+  echo "--environment is required" >&2
   exit 1
 fi
 
@@ -58,6 +58,7 @@ fi
 
 set -a
 
+# shellcheck source=/dev/null
 source "${ENV_FILE}"
 set +a
 

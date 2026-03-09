@@ -1,30 +1,10 @@
 name: ECR Publish
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
-    inputs:
-      cloud_provider_region:
-        description: Cloud provider region for the registry
-        required: true
-        type: string
-      cloud_provider_role_to_assume:
-        description: OIDC role ARN to assume for publish
-        required: true
-        type: string
-      image_namespace:
-        description: Registry namespace or prefix
-        required: true
-        default: microservices
-        type: string
-      image_tag:
-        description: Image tag to push
-        required: true
-        type: string
-      push_latest:
-        description: Also push the latest tag
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   id-token: write
@@ -32,70 +12,11 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - ecr_repo_name: auth-service
-            context: backend/auth-service
-          - ecr_repo_name: api-service
-            context: backend/api-service
-          - ecr_repo_name: audit-service
-            context: backend/audit-service
-          - ecr_repo_name: mailer-service
-            context: backend/mailer-service
-          - ecr_repo_name: notification-service
-            context: backend/notification-service
-          - ecr_repo_name: frontend
-            context: frontend
-          - ecr_repo_name: gateway
-            context: gateway
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
-        with:
-          role-to-assume: ${{ inputs.cloud_provider_role_to_assume }}
-          aws-region: ${{ inputs.cloud_provider_region }}
-
-      - name: Compute registry
-        id: registry
-        run: |
-          account_id="$(aws sts get-caller-identity --query Account --output text)"
-          registry="${account_id}.dkr.ecr.${{ inputs.cloud_provider_region }}.amazonaws.com"
-          echo "registry=${registry}" >> "${GITHUB_OUTPUT}"
-
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region "${{ inputs.cloud_provider_region }}" | \
-            docker login --username AWS --password-stdin "${{ steps.registry.outputs.registry }}"
-
-      - name: Ensure repository exists
-        run: |
-          repo_name="${{ inputs.image_namespace }}/${{ matrix.ecr_repo_name }}"
-          aws ecr describe-repositories --region "${{ inputs.cloud_provider_region }}" --repository-names "${repo_name}" >/dev/null 2>&1 || \
-            aws ecr create-repository --region "${{ inputs.cloud_provider_region }}" --repository-name "${repo_name}" >/dev/null
-
-      - name: Compute image tags
-        id: tags
-        run: |
-          base="${{ steps.registry.outputs.registry }}/${{ inputs.image_namespace }}/${{ matrix.ecr_repo_name }}"
-          tags="${base}:${{ inputs.image_tag }}"
-          if [[ "${{ inputs.push_latest }}" == "true" ]]; then
-            tags="${tags},${base}:latest"
-          fi
-          echo "tags=${tags}" >> "${GITHUB_OUTPUT}"
-
-      - name: Build and push image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: ${{ matrix.context }}
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
+    uses: ./.github/workflows/_publish-images.yml
+    with:
+      registry_provider: ecr
+      cloud_provider_region: ${{ vars.CLOUD_PROVIDER_REGION }}
+      cloud_provider_role_to_assume: ${{ vars.CLOUD_PROVIDER_ROLE_TO_ASSUME }}
+      image_namespace: ${{ vars.ECR_IMAGE_NAMESPACE != '' && vars.ECR_IMAGE_NAMESPACE || 'microservices' }}
+      image_tag: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+      push_latest: ${{ github.ref_type == 'tag' }}

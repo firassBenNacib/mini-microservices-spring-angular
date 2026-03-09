@@ -11,6 +11,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import java.util.Objects;
 
 @Component
 public class AuditClient {
@@ -25,8 +26,8 @@ public class AuditClient {
       @Value("${audit.url}") String auditUrl,
       @Value("${audit.api-key}") String apiKey,
       @Value("${audit.timeout-ms}") long timeoutMs) {
-    this.auditUrl = auditUrl;
-    this.apiKey = apiKey;
+    this.auditUrl = Objects.requireNonNull(auditUrl, "audit.url must not be null");
+    this.apiKey = Objects.requireNonNull(apiKey, "audit.api-key must not be null");
     this.restTemplate = builder
         .requestFactory(() -> buildRequestFactory(timeoutMs))
         .build();
@@ -36,11 +37,14 @@ public class AuditClient {
     AuditEventRequest payload = new AuditEventRequest(eventType, actor, details, source);
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("x-audit-key", apiKey);
+    headers.set("x-audit-key", Objects.requireNonNull(apiKey, "audit.api-key must not be null"));
     HttpEntity<AuditEventRequest> entity = new HttpEntity<>(payload, headers);
 
     try {
-      restTemplate.postForEntity(auditUrl, entity, String.class);
+      restTemplate.postForEntity(
+          Objects.requireNonNull(auditUrl, "audit.url must not be null"),
+          entity,
+          String.class);
     } catch (RestClientException ex) {
       LOG.warn("audit_event_delivery_failed eventType={} source={} actor={} message={}", eventType, source, actor, ex.getMessage());
     }

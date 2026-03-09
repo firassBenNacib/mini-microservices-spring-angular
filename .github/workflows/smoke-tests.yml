@@ -1,0 +1,42 @@
+name: Smoke Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Optional override for the deployed application URL
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-tests-${{ github.ref || github.run_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SMOKE_BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || vars.SMOKE_BASE_URL }}
+      SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
+      SMOKE_AUTH_PASSWORD: ${{ secrets.SMOKE_AUTH_PASSWORD }}
+    steps:
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
+
+      - name: Validate smoke configuration
+        run: |
+          test -n "${SMOKE_BASE_URL}" || {
+            echo "::error::Set repository variable SMOKE_BASE_URL or provide workflow_dispatch input base_url."
+            exit 1
+          }
+
+      - name: Run deployed smoke tests
+        run: bash ./scripts/smoke_test.sh --base-url "${SMOKE_BASE_URL}"

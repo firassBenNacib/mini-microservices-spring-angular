@@ -11,7 +11,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import java.time.Duration;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -147,7 +147,7 @@ public class AuthController {
             .secure(cookieSecure)
             .sameSite("Lax")
             .path("/")
-            .maxAge(Duration.ZERO)
+            .maxAge(0)
             .build()
             .toString());
     response.addHeader(
@@ -157,18 +157,20 @@ public class AuthController {
             .secure(cookieSecure)
             .sameSite("Lax")
             .path("/")
-            .maxAge(Duration.ZERO)
+            .maxAge(0)
             .build()
             .toString());
   }
 
   private ResponseCookie buildCookie(String name, String value, boolean httpOnly, long maxAgeSeconds) {
-    return ResponseCookie.from(name, value)
+    return ResponseCookie.from(
+            Objects.requireNonNull(name, "cookie name must not be null"),
+            Objects.requireNonNull(value, "cookie value must not be null"))
         .httpOnly(httpOnly)
         .secure(cookieSecure)
         .sameSite("Lax")
         .path("/")
-        .maxAge(Duration.ofSeconds(maxAgeSeconds))
+        .maxAge(maxAgeSeconds)
         .build();
   }
 

@@ -15,6 +15,7 @@ PUBLISH_FRONTEND_SCRIPT := $(SCRIPT_DIR)/publish_frontend_s3.sh
 PUSH_ECR_SCRIPT := $(SCRIPT_DIR)/build_push_ecr.sh
 PUSH_DOCKERHUB_SCRIPT := $(SCRIPT_DIR)/build_push_dockerhub.sh
 CREATE_CLOUD_SECRETS_SCRIPT := $(SCRIPT_DIR)/create_aws_secrets_from_env.sh
+SMOKE_TEST_SCRIPT := $(SCRIPT_DIR)/smoke_test.sh
 
 SHELL := bash
 .ONESHELL:
@@ -40,6 +41,7 @@ help:
 	printf "  %-22s %s\n" "logs" "Tail gateway/auth/api logs"
 	printf "\n"
 	printf "  %-22s %s\n" "compose-validate" "Validate compose overlays with example env"
+	printf "  %-22s %s\n" "smoke-test" "Run HTTP smoke checks against BASE_URL"
 	printf "  %-22s %s\n" "publish-frontend-build" "Build the Angular frontend only"
 	printf "  %-22s %s\n" "publish-frontend" "Build and publish frontend assets (requires BUCKET)"
 	printf "\n"
@@ -91,6 +93,14 @@ compose-validate:
 	docker compose --env-file $(LOCAL_ENV_FILE) -f docker-compose.yml config --services
 	docker compose --env-file $(LOCAL_ENV_FILE) -f docker-compose.yml -f docker-compose.images.yml config --services
 	docker compose --env-file $(LOCAL_ENV_FILE) -f docker-compose.yml -f docker-compose.build.yml config --services
+
+.PHONY: smoke-test
+smoke-test:
+	: "$${BASE_URL:?Usage: make smoke-test BASE_URL=https://example.com [SMOKE_AUTH_EMAIL=user@example.com] [SMOKE_AUTH_PASSWORD=secret]}"
+	BASE_URL="$${BASE_URL}" \
+	SMOKE_AUTH_EMAIL="$${SMOKE_AUTH_EMAIL:-}" \
+	SMOKE_AUTH_PASSWORD="$${SMOKE_AUTH_PASSWORD:-}" \
+	bash "$(SMOKE_TEST_SCRIPT)" --base-url "$${BASE_URL}"
 
 .PHONY: publish-frontend-build
 publish-frontend-build:

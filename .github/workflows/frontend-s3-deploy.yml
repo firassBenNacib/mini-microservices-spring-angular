@@ -1,60 +1,65 @@
 name: Frontend Cloud Provider Deploy
 
 on:
+  push:
+    tags:
+      - "v*"
+    paths:
+      - "frontend/**"
+      - "scripts/publish_frontend_s3.sh"
+      - ".github/actions/**"
+      - ".github/workflows/frontend-s3-deploy.yml"
   workflow_dispatch:
-    inputs:
-      cloud_provider_region:
-        description: Cloud provider region used for object storage and CDN invalidation
-        required: true
-        type: string
-      frontend_bucket:
-        description: Bucket name for frontend assets
-        required: true
-        type: string
-      frontend_distribution_id:
-        description: Optional CDN distribution ID for cache invalidation
-        required: false
-        type: string
-      cloud_provider_role_to_assume:
-        description: OIDC role ARN to assume for deployment
-        required: true
-        type: string
 
 permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: frontend-deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    env:
-      CLOUD_PROVIDER_REGION: ${{ inputs.cloud_provider_region }}
-      FRONTEND_BUCKET: ${{ inputs.frontend_bucket }}
-      FRONTEND_DISTRIBUTION_ID: ${{ inputs.frontend_distribution_id }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Harden runner and checkout
+        uses: ./.github/actions/harden-checkout
 
       - name: Validate deploy configuration
+        env:
+          CLOUD_PROVIDER_REGION: ${{ vars.CLOUD_PROVIDER_REGION }}
+          CLOUD_PROVIDER_ROLE_TO_ASSUME: ${{ vars.CLOUD_PROVIDER_ROLE_TO_ASSUME }}
+          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
         run: |
-          test -n "${CLOUD_PROVIDER_REGION}" || { echo "Provide workflow input cloud_provider_region"; exit 1; }
-          test -n "${FRONTEND_BUCKET}" || { echo "Provide workflow input frontend_bucket"; exit 1; }
+          test -n "${CLOUD_PROVIDER_REGION}" || { echo "::error::Set repository variable CLOUD_PROVIDER_REGION."; exit 1; }
+          test -n "${CLOUD_PROVIDER_ROLE_TO_ASSUME}" || { echo "::error::Set repository variable CLOUD_PROVIDER_ROLE_TO_ASSUME."; exit 1; }
+          test -n "${FRONTEND_BUCKET}" || { echo "::error::Set repository variable FRONTEND_BUCKET."; exit 1; }
 
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - name: Set up frontend workspace
+        uses: ./.github/actions/setup-node-project
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          working_directory: frontend
+
+      - name: Build frontend distribution
+        working-directory: frontend
+        run: npm run build
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
-          role-to-assume: ${{ inputs.cloud_provider_role_to_assume }}
-          aws-region: ${{ inputs.cloud_provider_region }}
+          role-to-assume: ${{ vars.CLOUD_PROVIDER_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.CLOUD_PROVIDER_REGION }}
 
       - name: Build and deploy frontend
+        env:
+          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+          FRONTEND_DISTRIBUTION_ID: ${{ vars.FRONTEND_DISTRIBUTION_ID }}
         run: |
           args=(--bucket "${FRONTEND_BUCKET}")
           if [ -n "${FRONTEND_DISTRIBUTION_ID}" ]; then

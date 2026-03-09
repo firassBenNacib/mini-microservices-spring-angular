@@ -12,6 +12,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import java.util.Objects;
 
 @Component
 public class MailerClient {
@@ -26,8 +27,8 @@ public class MailerClient {
       @Value("${mailer.url}") String mailerUrl,
       @Value("${mailer.api-key}") String apiKey,
       @Value("${mailer.timeout-ms}") long timeoutMs) {
-    this.mailerUrl = mailerUrl;
-    this.apiKey = apiKey;
+    this.mailerUrl = Objects.requireNonNull(mailerUrl, "mailer.url must not be null");
+    this.apiKey = Objects.requireNonNull(apiKey, "mailer.api-key must not be null");
     this.restTemplate = builder
         .requestFactory(() -> buildRequestFactory(timeoutMs))
         .build();
@@ -36,11 +37,14 @@ public class MailerClient {
   public boolean send(MailRequest request) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("x-mailer-key", apiKey);
+    headers.set("x-mailer-key", Objects.requireNonNull(apiKey, "mailer.api-key must not be null"));
 
     HttpEntity<MailRequest> entity = new HttpEntity<>(request, headers);
     try {
-      restTemplate.postForEntity(mailerUrl, entity, String.class);
+      restTemplate.postForEntity(
+          Objects.requireNonNull(mailerUrl, "mailer.url must not be null"),
+          entity,
+          String.class);
       return true;
     } catch (RestClientException ex) {
       LOG.warn("mailer_request_failed url={} message={}", mailerUrl, ex.getMessage());

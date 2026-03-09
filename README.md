@@ -13,10 +13,11 @@ A mini microservices application with Spring Boot backends, an Angular frontend,
 - [Usage](#usage)
 - [API and Gateway Routes](#api-and-gateway-routes)
 - [Environment Variables](#environment-variables)
+- [Make Targets](#make-targets)
 - [Build and Push Images](#build-and-push-images)
+- [CI/CD and Security Workflows](#cicd-and-security-workflows)
+- [GitHub Actions Configuration](#github-actions-configuration)
 - [Public vs Local Files](#public-vs-local-files)
-- [Frontend Cloud Provider Deploy Workflow](#frontend-cloud-provider-deploy-workflow)
-- [Container Publish Workflows](#container-publish-workflows)
 - [License](#license)
 - [Author](#author)
 
@@ -146,32 +147,81 @@ Optional:
 - `IMAGE_TAG`
 - `TWILIO_STATUS_CALLBACK_URL`
 
+## Make Targets
+
+The public operator interface for local work is the [Makefile](./Makefile).
+
+Common targets:
+
+- `make up`: pull pinned images and start the application
+- `make up-images`: start the published tag-based application
+- `make up-build`: build from local source and start the application
+- `make up-dev-images`: start published images with localhost dev ports
+- `make up-dev-build`: build locally with localhost dev ports
+- `make down`: stop the application and remove containers/networks
+- `make down-volumes`: stop the application and remove volumes too
+- `make ps`: show container status
+- `make logs`: tail gateway, auth-service, and api-service logs
+- `make compose-validate`: validate compose overlays against `.env.local.example`
+- `make smoke-test BASE_URL=https://example.com`: run shallow HTTP smoke checks
+- `make publish-frontend-build`: build the Angular frontend only
+- `make publish-frontend BUCKET=<bucket> [DISTRIBUTION_ID=<id>]`: publish frontend assets to object storage
+- `make push-dockerhub DOCKERHUB_USERNAME=<name> ...`: build and push all images to DockerHub
+- `make push-ecr CLOUD_PROVIDER_REGION=<region> ...`: build and push all images to ECR
+- `make create-cloud-secrets ENVIRONMENT=<name> [ENV_FILE=.env]`: create runtime secrets from a local env file
+
 ## Build and Push Images
 
-Use immutable tags (for example `1.0.0` or a git SHA), not `latest`.
-When updating base images or rebuilding published artifacts, update digest pins in `docker-compose.yml` intentionally.
+Use immutable tags such as a git SHA or release tag, not `latest`.
+For normal publishing, prefer the Make targets or GitHub Actions over long ad hoc Docker command sequences.
 
 ```bash
-docker login
-DOCKERHUB_USERNAME=your-dockerhub-username
-IMAGE_TAG=1.0.0
-
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-auth:${IMAGE_TAG} ./backend/auth-service
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-api:${IMAGE_TAG} ./backend/api-service
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-mailer:${IMAGE_TAG} ./backend/mailer-service
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-audit:${IMAGE_TAG} ./backend/audit-service
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-notification:${IMAGE_TAG} ./backend/notification-service
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-frontend:${IMAGE_TAG} ./frontend
-DOCKER_BUILDKIT=1 docker build -t ${DOCKERHUB_USERNAME}/mini-spring-gateway:${IMAGE_TAG} ./gateway
-
-docker push ${DOCKERHUB_USERNAME}/mini-spring-auth:${IMAGE_TAG}
-docker push ${DOCKERHUB_USERNAME}/mini-spring-api:${IMAGE_TAG}
-docker push ${DOCKERHUB_USERNAME}/mini-spring-mailer:${IMAGE_TAG}
-docker push ${DOCKERHUB_USERNAME}/mini-spring-audit:${IMAGE_TAG}
-docker push ${DOCKERHUB_USERNAME}/mini-spring-notification:${IMAGE_TAG}
-docker push ${DOCKERHUB_USERNAME}/mini-spring-frontend:${IMAGE_TAG}
-docker push ${DOCKERHUB_USERNAME}/mini-spring-gateway:${IMAGE_TAG}
+make push-dockerhub DOCKERHUB_USERNAME=your-user IMAGE_TAG=1.0.0
+make push-ecr CLOUD_PROVIDER_REGION=eu-west-1 IMAGE_TAG=1.0.0
 ```
+
+## CI/CD and Security Workflows
+
+The repo uses a small set of production-oriented workflows under [`.github/workflows/`](./.github/workflows):
+
+- `ci.yml`: workflow lint, Dockerfile lint, shell lint, compose validation, frontend build/tests, service tests, and image build verification
+- `dependency-review.yml`: dependency review on pull requests
+- `codeql.yml`: SAST for Java, JavaScript/TypeScript, and Python
+- `security-baseline.yml`: gitleaks and Trivy secret/config scanning
+- `container-security.yml`: SBOM generation plus Grype image scanning
+- `dast.yml`: OWASP ZAP baseline scan against a deployed target
+- `smoke-tests.yml`: shallow smoke tests against a deployed application
+- `scorecard.yml`: OSSF Scorecard
+- `dockerhub-publish.yml`: publish release-tagged images to DockerHub
+- `ecr-publish.yml`: publish release-tagged images to ECR
+- `frontend-s3-deploy.yml`: build the frontend and deploy it to object storage plus optional CDN invalidation
+
+Normal release behavior is tag-driven:
+
+- push a `v*` tag to trigger image publish and frontend deploy workflows
+- use `workflow_dispatch` only for controlled reruns or manual backfills
+
+## GitHub Actions Configuration
+
+Use GitHub repository or environment **Variables** for non-sensitive configuration:
+
+- `CLOUD_PROVIDER_REGION`
+- `CLOUD_PROVIDER_ROLE_TO_ASSUME`
+- `FRONTEND_BUCKET`
+- `FRONTEND_DISTRIBUTION_ID` (optional)
+- `DAST_TARGET_URL`
+- `SMOKE_BASE_URL`
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_NAMESPACE`
+- `ECR_IMAGE_NAMESPACE` (optional, defaults to `microservices`)
+
+Use GitHub **Secrets** only for sensitive values:
+
+- `DOCKERHUB_TOKEN`
+- `SMOKE_AUTH_EMAIL` (optional)
+- `SMOKE_AUTH_PASSWORD` (optional)
+
+The deploy and publish workflows use GitHub OIDC for cloud authentication, so long-lived cloud access keys are not required.
 
 ## Public vs Local Files
 
@@ -185,6 +235,7 @@ Safe to push to a public repository:
 - example environment contracts:
   - `.env.local.example`
   - `.env.cloud-provider.example`
+- repo metadata such as `CODEOWNERS`, `CONTRIBUTING.md`, and `SECURITY.md`
 
 Keep local and do not commit:
 
@@ -193,28 +244,6 @@ Keep local and do not commit:
 - built frontend artifacts under `frontend/dist/`
 - local caches such as `frontend/node_modules/`
 - any scratch output in `.artifacts/`
-
-## Frontend Cloud Provider Deploy Workflow
-
-The repo includes [frontend-s3-deploy.yml](./.github/workflows/frontend-s3-deploy.yml) for Angular build + object storage sync + optional CDN invalidation.
-
-Run it manually from GitHub Actions and provide these inputs:
-
-- `cloud_provider_region`
-- `frontend_bucket`
-- optional `frontend_distribution_id`
-- `cloud_provider_role_to_assume`
-
-The current implementation uses GitHub OIDC via `aws-actions/configure-aws-credentials`, so long-lived access keys are not required.
-
-## Container Publish Workflows
-
-The repo includes manual image publish workflows:
-
-- [dockerhub-publish.yml](./.github/workflows/dockerhub-publish.yml)
-- [ecr-publish.yml](./.github/workflows/ecr-publish.yml)
-
-Use them when you want to build and publish the full service set without running local shell scripts.
 
 ## License
 
