@@ -28,8 +28,15 @@ jobs:
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
       SMOKE_AUTH_PASSWORD: ${{ secrets.SMOKE_AUTH_PASSWORD }}
     steps:
-      - name: Harden runner and checkout
-        uses: ./.github/actions/harden-checkout
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Validate smoke configuration
         run: |

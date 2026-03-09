@@ -28,8 +28,15 @@ jobs:
     env:
       DAST_TARGET_URL: ${{ inputs.target_url != '' && inputs.target_url || vars.DAST_TARGET_URL }}
     steps:
-      - name: Harden runner and checkout
-        uses: ./.github/actions/harden-checkout
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Validate DAST target
         run: |
