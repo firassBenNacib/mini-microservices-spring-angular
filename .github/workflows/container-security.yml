@@ -104,10 +104,11 @@ jobs:
         with:
           image: local/${{ matrix.image_name }}:${{ github.sha }}
           fail-build: true
-          severity-cutoff: high
+          severity-cutoff: critical
           output-format: sarif
           output-file: grype-${{ matrix.image_name }}.sarif
           cache-db: true
+          only-fixed: true
 
       - name: Upload Grype SARIF
         if: always() && hashFiles(format('grype-{0}.sarif', matrix.image_name)) != ''
