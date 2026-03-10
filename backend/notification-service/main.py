@@ -172,13 +172,13 @@ async def send_twilio_sms(to: str, body: str) -> str:
   except httpx.TimeoutException as exc:
     logger.error(
       "twilio_sms_timeout",
-      extra={"extra_data": {"event": "twilio_sms_timeout", "to": mask_phone(to)}},
+      extra={"extra_data": {"event": "twilio_sms_timeout"}},
     )
     raise HTTPException(status_code=502, detail="notification provider timeout") from exc
   except httpx.RequestError as exc:
     logger.error(
       "twilio_sms_request_error",
-      extra={"extra_data": {"event": "twilio_sms_request_error", "to": mask_phone(to)}},
+      extra={"extra_data": {"event": "twilio_sms_request_error"}},
     )
     raise HTTPException(status_code=502, detail="notification provider unavailable") from exc
 
@@ -194,10 +194,8 @@ async def send_twilio_sms(to: str, body: str) -> str:
       extra={
         "extra_data": {
           "event": "twilio_sms_failed",
-          "to": sanitize_for_log(mask_phone(to)),
           "statusCode": response.status_code,
           "providerCode": sanitize_for_log(parsed.get("code", "")),
-          "providerMessage": sanitize_for_log(parsed.get("message", ""), 512),
         }
       },
     )
@@ -209,8 +207,7 @@ async def send_twilio_sms(to: str, body: str) -> str:
     extra={
       "extra_data": {
         "event": "twilio_sms_sent",
-        "to": sanitize_for_log(mask_phone(to)),
-        "providerMessageSid": sanitize_for_log(sid),
+        "providerMessageSidLength": len(sid),
       }
     },
   )
@@ -229,10 +226,8 @@ async def notify(request: NotificationRequest, x_notify_key: str | None = Header
     extra={
       "extra_data": {
         "event": "notification_sent",
-        "to": sanitize_for_log(mask_phone(request.to)),
-        "subject": sanitize_for_log(request.subject),
         "textLength": len(request.text),
-        "providerMessageSid": sanitize_for_log(sid),
+        "providerMessageSidLength": len(sid),
       }
     },
   )
@@ -270,11 +265,11 @@ async def twilio_status_callback(
     extra={
       "extra_data": {
         "event": "twilio_sms_delivery_status",
-        "providerMessageSid": sanitize_for_log(message_sid),
+        "providerMessageSidLength": len(message_sid),
         "messageStatus": sanitize_for_log(message_status),
-        "to": sanitize_for_log(mask_phone(to)) if to else "",
+        "hasRecipient": bool(to),
         "errorCode": sanitize_for_log(error_code),
-        "errorMessage": sanitize_for_log(error_message, 512),
+        "hasErrorMessage": bool(error_message),
       }
     },
   )
