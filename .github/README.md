@@ -10,7 +10,7 @@
 - `frontend-s3-deploy.yml`: frontend deploy plus post-deploy smoke test.
 - `dast.yml`: manual live-target DAST.
 - `smoke-tests.yml`: scheduled/manual stable-environment smoke checks.
-- `scorecard.yml`: scheduled OSSF Scorecard SARIF upload.
+- `scorecard.yml`: scheduled OSSF Scorecard governance report artifact.
 
 ## Configuration
 

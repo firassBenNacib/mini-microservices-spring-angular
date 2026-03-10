@@ -192,7 +192,7 @@ The repo uses a small set of production-oriented workflows under [`.github/workf
 - `image-advisory-report.yml`: scheduled/manual stricter Grype reporting for fixed `HIGH,CRITICAL` image vulnerabilities
 - `dast.yml`: manual live-target DAST with OWASP ZAP and optional Nuclei
 - `smoke-tests.yml`: scheduled and manual shallow smoke tests against the stable deployed application
-- `scorecard.yml`: OSSF Scorecard
+- `scorecard.yml`: OSSF Scorecard report artifact for repository governance posture
 - `dockerhub-publish.yml`: publish, attest, and keylessly sign release-tagged images in DockerHub
 - `ecr-publish.yml`: publish, attest, and keylessly sign release-tagged images in ECR
 - `frontend-s3-deploy.yml`: build the frontend, deploy it to object storage, and run release smoke checks when `SMOKE_BASE_URL` is configured
