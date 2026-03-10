@@ -187,11 +187,16 @@ jobs:
     name: Container Security
     if: always()
     needs:
+      - changes
       - image-security
     runs-on: ubuntu-latest
     steps:
       - name: Check upstream job results
         run: |
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "::error::Container Security change detection failed with result ${{ needs.changes.result }}."
+            exit 1
+          fi
           if [[ "${{ needs.image-security.result }}" != "success" && "${{ needs.image-security.result }}" != "skipped" ]]; then
             echo "::error::Container Security dependency failed with result ${{ needs.image-security.result }}."
             exit 1

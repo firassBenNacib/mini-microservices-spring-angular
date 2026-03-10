@@ -375,6 +375,7 @@ jobs:
     steps:
       - name: Check upstream job results
         env:
+          CHANGES: ${{ needs.changes.result }}
           WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
           DOCKERFILE_LINT: ${{ needs.dockerfile-lint.result }}
           SHELL_LINT: ${{ needs.shell-lint.result }}
@@ -384,6 +385,10 @@ jobs:
           NOTIFICATION_SERVICE: ${{ needs.notification-service.result }}
           IMAGE_BUILDS: ${{ needs.image-builds.result }}
         run: |
+          if [[ "${CHANGES}" != "success" ]]; then
+            echo "::error::CI change detection failed with result ${CHANGES}."
+            exit 1
+          fi
           for result in \
             "${WORKFLOW_LINT}" \
             "${DOCKERFILE_LINT}" \

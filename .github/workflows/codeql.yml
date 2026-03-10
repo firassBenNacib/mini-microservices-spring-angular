@@ -171,11 +171,16 @@ jobs:
     name: CodeQL
     if: always()
     needs:
+      - changes
       - analyze
     runs-on: ubuntu-latest
     steps:
       - name: Check upstream job results
         run: |
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "::error::CodeQL change detection failed with result ${{ needs.changes.result }}."
+            exit 1
+          fi
           if [[ "${{ needs.analyze.result }}" != "success" && "${{ needs.analyze.result }}" != "skipped" ]]; then
             echo "::error::CodeQL dependency failed with result ${{ needs.analyze.result }}."
             exit 1
