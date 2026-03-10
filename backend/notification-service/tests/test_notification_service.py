@@ -65,7 +65,7 @@ class NotificationServiceTest(unittest.TestCase):
     self.assertEqual("invalid notify key", response.json()["detail"])
 
   def test_twilio_status_callback_validates_signature(self) -> None:
-    callback_url = "https://example.com/notify/twilio/status"
+    callback_url = "https://notifications.example.test/notify/twilio/status"
     module = load_module(callback_url)
     client = TestClient(module.app)
     form_data = {

@@ -2,14 +2,6 @@ name: Dependency Review
 
 on:
   pull_request:
-    paths:
-      - "backend/**/pom.xml"
-      - "backend/**/package.json"
-      - "backend/**/package-lock.json"
-      - "backend/**/requirements.txt"
-      - "frontend/package.json"
-      - "frontend/package-lock.json"
-      - ".github/workflows/dependency-review.yml"
 
 permissions:
   contents: read
