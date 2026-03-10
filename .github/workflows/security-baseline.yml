@@ -63,15 +63,6 @@ jobs:
         id: gitleaks
         continue-on-error: true
         uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
-        with:
-          args: "--redact --no-banner --report-format sarif --report-path gitleaks.sarif"
-
-      - name: Upload gitleaks SARIF
-        if: always() && hashFiles('gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
-        with:
-          sarif_file: gitleaks.sarif
-          category: gitleaks
 
       - name: Fail if gitleaks detected secrets
         if: steps.gitleaks.outcome == 'failure'

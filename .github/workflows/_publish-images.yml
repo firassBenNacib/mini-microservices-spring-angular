@@ -33,6 +33,10 @@ on:
         required: false
         type: string
         default: microservices
+      sign_images:
+        required: false
+        type: boolean
+        default: true
     secrets:
       DOCKERHUB_TOKEN:
         required: false
@@ -150,8 +154,10 @@ jobs:
           fi
 
           echo "tags=${tags}" >> "${GITHUB_OUTPUT}"
+          echo "base_ref=${base}" >> "${GITHUB_OUTPUT}"
 
       - name: Build and push image
+        id: build_and_push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.context }}
@@ -160,3 +166,22 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
           cache-to: type=gha,mode=max,scope=publish-${{ matrix.service_name }}
+
+      - name: Install Cosign
+        if: inputs.sign_images
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v3.10.0
+        with:
+          cosign-release: v3.0.5
+
+      - name: Sign published image
+        if: inputs.sign_images
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test -n "${IMAGE_REF}" || {
+            echo "::error::Published image digest is empty."
+            exit 1
+          }
+          cosign sign --yes "${IMAGE_REF}"

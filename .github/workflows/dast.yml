@@ -7,8 +7,6 @@ on:
         description: Optional override for the scan target URL
         required: false
         type: string
-  schedule:
-    - cron: "0 2 * * 1"
 
 permissions:
   contents: read

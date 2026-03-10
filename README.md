@@ -189,17 +189,17 @@ The repo uses a small set of production-oriented workflows under [`.github/workf
 - `codeql.yml`: SAST for Java, JavaScript/TypeScript, and Python
 - `security-baseline.yml`: gitleaks and Trivy secret/config scanning
 - `container-security.yml`: SBOM generation plus Grype image scanning
-- `dast.yml`: OWASP ZAP baseline scan against a deployed target
-- `smoke-tests.yml`: shallow smoke tests against a deployed application
+- `dast.yml`: manual OWASP ZAP baseline scan against a deployed target
+- `smoke-tests.yml`: manual shallow smoke tests against a deployed application
 - `scorecard.yml`: OSSF Scorecard
-- `dockerhub-publish.yml`: publish release-tagged images to DockerHub
-- `ecr-publish.yml`: publish release-tagged images to ECR
+- `dockerhub-publish.yml`: publish and keylessly sign release-tagged images in DockerHub
+- `ecr-publish.yml`: publish and keylessly sign release-tagged images in ECR
 - `frontend-s3-deploy.yml`: build the frontend and deploy it to object storage plus optional CDN invalidation
 
 Normal release behavior is tag-driven:
 
 - push a `v*` tag to trigger image publish and frontend deploy workflows
-- use `workflow_dispatch` only for controlled reruns or manual backfills
+- use `workflow_dispatch` for live-environment workflows and controlled reruns or manual backfills
 
 ## GitHub Actions Configuration
 
