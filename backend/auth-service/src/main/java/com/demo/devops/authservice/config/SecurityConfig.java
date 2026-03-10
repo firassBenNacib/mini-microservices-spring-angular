@@ -30,7 +30,10 @@ public class SecurityConfig {
     http
         .csrf(csrf -> csrf
             .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-            .ignoringRequestMatchers(new AntPathRequestMatcher("/actuator/**")))
+            .ignoringRequestMatchers(
+                new AntPathRequestMatcher("/actuator/**"),
+                AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/auth/login"),
+                AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/auth/logout")))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
