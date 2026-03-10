@@ -2,27 +2,9 @@ name: CI
 
 on:
   pull_request:
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/**"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
-      - "Makefile"
   push:
     branches:
       - main
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/**"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
-      - "Makefile"
 
 permissions:
   contents: read

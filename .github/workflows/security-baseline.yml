@@ -5,23 +5,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/**"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
   pull_request:
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/**"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
   schedule:
     - cron: "0 4 * * 1"
 
