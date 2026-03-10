@@ -18,7 +18,7 @@
   <description>API microservice for DevOps demo</description>
 
   <properties>
-    <jackson.version>2.18.6</jackson.version>
+    <jackson-bom.version>2.18.6</jackson-bom.version>
     <java.version>17</java.version>
     <jjwt.version>0.11.5</jjwt.version>
     <logback.version>1.5.32</logback.version>
@@ -35,7 +35,6 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
-      <version>${jackson.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

@@ -1,0 +1,66 @@
+version: 2
+open-pull-requests-limit: 10
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "Update"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/auth-service"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "Update"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/api-service"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "Update"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/audit-service"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "Update"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/mailer-service"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "Update"
+
+  - package-ecosystem: "pip"
+    directory: "/backend/notification-service"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "Update"
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "Update"

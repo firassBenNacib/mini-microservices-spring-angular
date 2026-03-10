@@ -7,10 +7,7 @@ on:
       - main
     paths:
       - ".github/actions/**"
-      - ".github/workflows/security-baseline.yml"
-      - ".github/workflows/codeql.yml"
-      - ".github/workflows/container-security.yml"
-      - ".github/workflows/dast.yml"
+      - ".github/workflows/**"
       - "backend/**"
       - "frontend/**"
       - "gateway/**"
@@ -19,10 +16,7 @@ on:
   pull_request:
     paths:
       - ".github/actions/**"
-      - ".github/workflows/security-baseline.yml"
-      - ".github/workflows/codeql.yml"
-      - ".github/workflows/container-security.yml"
-      - ".github/workflows/dast.yml"
+      - ".github/workflows/**"
       - "backend/**"
       - "frontend/**"
       - "gateway/**"
@@ -44,6 +38,26 @@ defaults:
     shell: bash
 
 jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run Gitleaks against git history
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   trivy-secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -129,16 +143,18 @@ jobs:
     name: Security Baseline
     if: always()
     needs:
+      - gitleaks
       - trivy-secrets
       - trivy-config
     runs-on: ubuntu-latest
     steps:
       - name: Check upstream job results
         env:
+          GITLEAKS: ${{ needs.gitleaks.result }}
           TRIVY_SECRETS: ${{ needs.trivy-secrets.result }}
           TRIVY_CONFIG: ${{ needs.trivy-config.result }}
         run: |
-          for result in "${TRIVY_SECRETS}" "${TRIVY_CONFIG}"; do
+          for result in "${GITLEAKS}" "${TRIVY_SECRETS}" "${TRIVY_CONFIG}"; do
             if [[ "${result}" != "success" ]]; then
               echo "::error::Security Baseline dependency failed with result ${result}."
               exit 1

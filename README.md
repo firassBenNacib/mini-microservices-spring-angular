@@ -187,10 +187,11 @@ The repo uses a small set of production-oriented workflows under [`.github/workf
 - `ci.yml`: workflow lint, Dockerfile lint, shell lint, compose validation, frontend build/tests, service tests, and image build verification
 - `dependency-review.yml`: dependency review on pull requests
 - `codeql.yml`: SAST for Java, JavaScript/TypeScript, and Python
-- `security-baseline.yml`: gitleaks and Trivy secret/config scanning
-- `container-security.yml`: SBOM generation plus Grype image scanning
+- `security-baseline.yml`: Gitleaks history scanning plus Trivy secret/config scanning
+- `container-security.yml`: SBOM generation plus Grype image scanning; Grype remains a CI gate and artifact report, while GitHub code scanning stays focused on source and SARIF-based findings
+- `image-advisory-report.yml`: scheduled/manual stricter Grype reporting for fixed `HIGH,CRITICAL` image vulnerabilities
 - `dast.yml`: manual live-target DAST with OWASP ZAP and optional Nuclei
-- `smoke-tests.yml`: manual shallow smoke tests against a deployed application
+- `smoke-tests.yml`: scheduled and manual shallow smoke tests against the stable deployed application
 - `scorecard.yml`: OSSF Scorecard
 - `dockerhub-publish.yml`: publish, attest, and keylessly sign release-tagged images in DockerHub
 - `ecr-publish.yml`: publish, attest, and keylessly sign release-tagged images in ECR
@@ -226,6 +227,8 @@ The deploy and publish workflows use GitHub OIDC for cloud authentication, so lo
 
 For live deploy controls, create a GitHub environment named `production` and attach the protection rules you want there, for example required reviewers, deployment branch restrictions, and wait timers. The live deploy, DAST, and smoke workflows are wired to use that environment.
 
+Dependabot is configured for ongoing weekly refreshes of Actions, service dependencies, and frontend dependencies through [`.github/dependabot.yml`](./.github/dependabot.yml).
+
 ## Public vs Local Files
 
 Safe to push to a public repository:
@@ -238,7 +241,7 @@ Safe to push to a public repository:
 - example environment contracts:
   - `.env.local.example`
   - `.env.cloud-provider.example`
-- repo metadata such as `CODEOWNERS`, `CONTRIBUTING.md`, and `SECURITY.md`
+- repo metadata such as `.github/dependabot.yml` and `.github/README.md`
 
 Keep local and do not commit:
 
