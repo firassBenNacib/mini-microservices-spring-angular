@@ -31,6 +31,7 @@ jobs:
       SMOKE_BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || vars.SMOKE_BASE_URL }}
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
       SMOKE_AUTH_PASSWORD: ${{ secrets.SMOKE_AUTH_PASSWORD }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
