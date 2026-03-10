@@ -2,9 +2,13 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "github-actions"
@@ -13,9 +17,13 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/auth-service"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      auth-service-dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:
@@ -23,9 +31,13 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/api-service"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      api-service-dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:
@@ -33,9 +45,13 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/audit-service"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      audit-service-dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:
@@ -43,9 +59,13 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/mailer-service"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      mailer-service-dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:
@@ -53,9 +73,13 @@ updates:
 
   - package-ecosystem: "pip"
     directory: "/backend/notification-service"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      notification-service-dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:
@@ -63,9 +87,13 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/frontend"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
     commit-message:

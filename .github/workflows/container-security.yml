@@ -21,27 +21,117 @@ defaults:
     shell: bash
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      run_images: ${{ steps.filter.outputs.run_images }}
+      image_matrix: ${{ steps.filter.outputs.image_matrix }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed areas
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          python3 <<'PY'
+          import fnmatch
+          import json
+          import os
+          import subprocess
+
+          ZERO = "0" * 40
+          event = os.environ["EVENT_NAME"]
+          before = os.environ.get("BEFORE_SHA", "")
+          base = os.environ.get("BASE_SHA", "")
+          head = os.environ["GITHUB_SHA"]
+
+          if event == "pull_request":
+            start = base
+          elif before and before != ZERO:
+            start = before
+          else:
+            start = ""
+
+          if start:
+            diff = subprocess.check_output(["git", "diff", "--name-only", start, head], text=True)
+            files = [line for line in diff.splitlines() if line]
+          else:
+            files = ["__ALL__"]
+
+          filters = {
+            "workflow_config": [".github/actions/**", ".github/workflows/**"],
+            "frontend": ["frontend/**"],
+            "gateway": ["gateway/**"],
+            "auth_service": ["backend/auth-service/**", "backend/pom.xml"],
+            "api_service": ["backend/api-service/**", "backend/pom.xml"],
+            "audit_service": ["backend/audit-service/**", "backend/pom.xml"],
+            "mailer_service": ["backend/mailer-service/**", "backend/pom.xml"],
+            "notification_service": ["backend/notification-service/**"],
+          }
+
+          def matches(patterns):
+            if "__ALL__" in files:
+              return True
+            return any(fnmatch.fnmatch(path, pattern) for path in files for pattern in patterns)
+
+          results = {name: matches(patterns) for name, patterns in filters.items()}
+          image_entries = [
+            {"image_name": "auth-service", "context": "backend/auth-service"},
+            {"image_name": "api-service", "context": "backend/api-service"},
+            {"image_name": "audit-service", "context": "backend/audit-service"},
+            {"image_name": "mailer-service", "context": "backend/mailer-service"},
+            {"image_name": "notification-service", "context": "backend/notification-service"},
+            {"image_name": "gateway", "context": "gateway"},
+            {"image_name": "frontend", "context": "frontend"},
+          ]
+
+          selected_images = [
+            entry for entry in image_entries
+            if results["workflow_config"] or (
+              entry["image_name"] == "frontend" and results["frontend"]
+            ) or (
+              entry["image_name"] == "gateway" and results["gateway"]
+            ) or (
+              entry["image_name"] == "auth-service" and results["auth_service"]
+            ) or (
+              entry["image_name"] == "api-service" and results["api_service"]
+            ) or (
+              entry["image_name"] == "audit-service" and results["audit_service"]
+            ) or (
+              entry["image_name"] == "mailer-service" and results["mailer_service"]
+            ) or (
+              entry["image_name"] == "notification-service" and results["notification_service"]
+            )
+          ]
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+            fh.write(f"run_images={'true' if selected_images else 'false'}\n")
+            fh.write(f"image_matrix={json.dumps(selected_images)}\n")
+          PY
+
   image-security:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_images == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image_name: auth-service
-            context: backend/auth-service
-          - image_name: api-service
-            context: backend/api-service
-          - image_name: audit-service
-            context: backend/audit-service
-          - image_name: mailer-service
-            context: backend/mailer-service
-          - image_name: notification-service
-            context: backend/notification-service
-          - image_name: gateway
-            context: gateway
-          - image_name: frontend
-            context: frontend
+        include: ${{ fromJSON(needs.changes.outputs.image_matrix) }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -102,7 +192,7 @@ jobs:
     steps:
       - name: Check upstream job results
         run: |
-          if [[ "${{ needs.image-security.result }}" != "success" ]]; then
+          if [[ "${{ needs.image-security.result }}" != "success" && "${{ needs.image-security.result }}" != "skipped" ]]; then
             echo "::error::Container Security dependency failed with result ${{ needs.image-security.result }}."
             exit 1
           fi
