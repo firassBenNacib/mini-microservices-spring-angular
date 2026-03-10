@@ -266,10 +266,9 @@ async def twilio_status_callback(
       "extra_data": {
         "event": "twilio_sms_delivery_status",
         "providerMessageSidLength": len(message_sid),
-        "messageStatus": sanitize_for_log(message_status),
         "hasRecipient": bool(to),
-        "errorCode": sanitize_for_log(error_code),
         "hasErrorMessage": bool(error_message),
+        "hasErrorCode": bool(error_code),
       }
     },
   )
