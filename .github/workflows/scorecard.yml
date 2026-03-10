@@ -6,8 +6,6 @@ on:
     - cron: "15 4 * * 1"
 
 permissions:
-  security-events: write
-  id-token: write
   contents: read
   actions: read
 
@@ -19,7 +17,16 @@ jobs:
   analysis:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -30,7 +37,28 @@ jobs:
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
-          publish_results: true
+          publish_results: false
+
+      - name: Upload Scorecard SARIF artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: scorecard-results
+          path: scorecard-results.sarif
+
+  upload-sarif:
+    name: Upload Scorecard SARIF
+    needs:
+      - analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Download Scorecard SARIF artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: scorecard-results
+          path: .
 
       - name: Upload Scorecard SARIF
         uses: github/codeql-action/upload-sarif@e753c89edeb6ea2333858f2dd740f46591744926 # v4.31.1

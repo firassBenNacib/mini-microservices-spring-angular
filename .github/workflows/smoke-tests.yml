@@ -7,6 +7,8 @@ on:
         description: Optional override for the deployed application URL
         required: false
         type: string
+  schedule:
+    - cron: "0 5 * * *"
 
 permissions:
   contents: read
