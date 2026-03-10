@@ -97,7 +97,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -120,7 +120,7 @@ jobs:
           esac
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Log in to registry
         uses: ./.github/actions/registry-login
@@ -159,7 +159,7 @@ jobs:
 
       - name: Build and push image
         id: build_and_push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: ${{ matrix.context }}
           push: true
@@ -169,7 +169,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=publish-${{ matrix.service_name }}
 
       - name: Build local release image for SBOM generation
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: ${{ matrix.context }}
           push: false
@@ -179,7 +179,7 @@ jobs:
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
 
       - name: Generate release SBOM
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
         with:
           image: local/release-${{ matrix.service_name }}:${{ github.sha }}
           format: spdx-json
@@ -187,7 +187,7 @@ jobs:
           upload-artifact: "false"
 
       - name: Upload release SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: release-sbom-${{ matrix.service_name }}-${{ inputs.registry_provider }}
           path: release-sbom-${{ matrix.service_name }}.spdx.json
@@ -207,7 +207,7 @@ jobs:
 
       - name: Install Cosign
         if: inputs.sign_images
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v3.10.0
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v3.10.0
         with:
           cosign-release: v3.0.5
 
