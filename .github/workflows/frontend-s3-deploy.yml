@@ -71,6 +71,21 @@ jobs:
           fi
           ./scripts/publish_frontend_s3.sh "${args[@]}"
 
+      - name: Write deploy summary
+        env:
+          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+          FRONTEND_DISTRIBUTION_ID: ${{ vars.FRONTEND_DISTRIBUTION_ID }}
+        run: |
+          {
+            echo "## Frontend deploy summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| bucket | \`${FRONTEND_BUCKET}\` |"
+            echo "| distribution id | \`${FRONTEND_DISTRIBUTION_ID:-<none>}\` |"
+            echo "| build source | \`frontend/\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
   release-smoke:
     if: ${{ vars.SMOKE_BASE_URL != '' }}
     needs: build-and-deploy
@@ -88,3 +103,15 @@ jobs:
 
       - name: Run post-deploy smoke tests
         run: bash ./scripts/smoke_test.sh --base-url "${SMOKE_BASE_URL}"
+
+      - name: Write release smoke summary
+        if: always()
+        run: |
+          {
+            echo "## Release smoke summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| base url | \`${SMOKE_BASE_URL}\` |"
+            echo "| auth mode | $([[ -n \"${SMOKE_AUTH_EMAIL}\" && -n \"${SMOKE_AUTH_PASSWORD}\" ]] && echo authenticated || echo anonymous) |"
+          } >> "${GITHUB_STEP_SUMMARY}"

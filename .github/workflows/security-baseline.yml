@@ -22,8 +22,7 @@ defaults:
     shell: bash
 
 env:
-  GITLEAKS_VERSION: v8.30.0
-  TRIVY_VERSION: v0.69.3
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   gitleaks:
@@ -36,28 +35,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install Gitleaks
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" -o "$tmp/gitleaks.tar.gz"
-          tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp"
-          install "$tmp/gitleaks" /usr/local/bin/gitleaks
-
       - name: Run Gitleaks against git history
         id: gitleaks
         continue-on-error: true
-        run: |
-          gitleaks git . \
-            --report-format sarif \
-            --report-path gitleaks.sarif \
-            --redact
-
-      - name: Upload Gitleaks report
-        if: always() && hashFiles('gitleaks.sarif') != ''
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: gitleaks-sarif
-          path: gitleaks.sarif
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_SUMMARY: "true"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_CONFIG: .gitleaks.toml
 
       - name: Fail if Gitleaks detected secrets
         if: steps.gitleaks.outcome == 'failure'
@@ -75,23 +61,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install Trivy
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" -o "$tmp/trivy.tar.gz"
-          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp"
-          install "$tmp/trivy" /usr/local/bin/trivy
-
       - name: Trivy secret scan
         id: trivy_secrets
         continue-on-error: true
-        run: |
-          trivy fs . \
-            --scanners secret \
-            --format sarif \
-            --output trivy-secrets.sarif \
-            --exit-code 1 \
-            --quiet
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          format: sarif
+          output: trivy-secrets.sarif
+          exit-code: "1"
+          ignore-unfixed: true
+          cache: "false"
 
       - name: Upload Trivy secrets SARIF
         if: always() && hashFiles('trivy-secrets.sarif') != ''
@@ -115,23 +97,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Trivy
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" -o "$tmp/trivy.tar.gz"
-          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp"
-          install "$tmp/trivy" /usr/local/bin/trivy
-
       - name: Trivy config scan
         id: trivy_config
         continue-on-error: true
-        run: |
-          trivy config . \
-            --format sarif \
-            --output trivy-config.sarif \
-            --severity HIGH,CRITICAL \
-            --exit-code 1 \
-            --quiet
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          cache: "false"
 
       - name: Upload Trivy config SARIF
         if: always() && hashFiles('trivy-config.sarif') != ''
@@ -155,6 +132,24 @@ jobs:
       - trivy-config
     runs-on: ubuntu-latest
     steps:
+      - name: Write Security Baseline summary
+        env:
+          GITLEAKS: ${{ needs.gitleaks.result }}
+          TRIVY_SECRETS: ${{ needs.trivy-secrets.result }}
+          TRIVY_CONFIG: ${{ needs.trivy-config.result }}
+        run: |
+          {
+            echo "## Security Baseline summary"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| gitleaks | ${GITLEAKS} |"
+            echo "| trivy-secrets | ${TRIVY_SECRETS} |"
+            echo "| trivy-config | ${TRIVY_CONFIG} |"
+            echo
+            echo "SARIF uploads remain enabled for Trivy secret and config scans."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Check upstream job results
         env:
           GITLEAKS: ${{ needs.gitleaks.result }}

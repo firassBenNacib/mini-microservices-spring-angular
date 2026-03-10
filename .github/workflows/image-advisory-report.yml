@@ -17,7 +17,7 @@ defaults:
     shell: bash
 
 env:
-  GRYPE_VERSION: v0.109.1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   image-advisory-report:
@@ -61,22 +61,17 @@ jobs:
           cache-from: type=gha,scope=advisory-${{ matrix.image_name }}
           cache-to: type=gha,mode=max,scope=advisory-${{ matrix.image_name }}
 
-      - name: Install Grype
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/anchore/grype/releases/download/${GRYPE_VERSION}/grype_${GRYPE_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/grype.tar.gz"
-          tar -xzf "$tmp/grype.tar.gz" -C "$tmp"
-          install "$tmp/grype" /usr/local/bin/grype
-
       - name: Run Grype advisory scan
         id: grype
         continue-on-error: true
-        run: |
-          set -o pipefail
-          grype "docker:advisory/${{ matrix.image_name }}:${{ github.sha }}" \
-            --only-fixed \
-            --fail-on high \
-            -o table | tee "advisory-${{ matrix.image_name }}.txt"
+        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c # v7.3.2
+        with:
+          image: advisory/${{ matrix.image_name }}:${{ github.sha }}
+          fail-build: true
+          only-fixed: true
+          severity-cutoff: high
+          output-format: table
+          output-file: advisory-${{ matrix.image_name }}.txt
 
       - name: Upload advisory report
         if: always() && hashFiles(format('advisory-{0}.txt', matrix.image_name)) != ''
@@ -84,6 +79,22 @@ jobs:
         with:
           name: advisory-${{ matrix.image_name }}
           path: advisory-${{ matrix.image_name }}.txt
+
+      - name: Write advisory summary
+        if: always()
+        env:
+          GRYPE_OUTCOME: ${{ steps.grype.outcome }}
+        run: |
+          {
+            echo "## Image advisory summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| image | \`${{ matrix.image_name }}\` |"
+            echo "| context | \`${{ matrix.context }}\` |"
+            echo "| advisory scan outcome | ${GRYPE_OUTCOME} |"
+            echo "| artifact | \`advisory-${{ matrix.image_name }}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Fail scheduled advisory if high or critical findings exist
         if: steps.grype.outcome == 'failure'

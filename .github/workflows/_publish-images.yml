@@ -55,7 +55,7 @@ defaults:
     shell: bash
 
 env:
-  SYFT_VERSION: v1.42.2
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   publish:
@@ -176,17 +176,13 @@ jobs:
           tags: local/release-${{ matrix.service_name }}:${{ github.sha }}
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
 
-      - name: Install Syft
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/syft.tar.gz"
-          tar -xzf "$tmp/syft.tar.gz" -C "$tmp"
-          install "$tmp/syft" /usr/local/bin/syft
-
       - name: Generate release SBOM
-        run: |
-          syft "docker:local/release-${{ matrix.service_name }}:${{ github.sha }}" \
-            -o "spdx-json=release-sbom-${{ matrix.service_name }}.spdx.json"
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
+        with:
+          image: local/release-${{ matrix.service_name }}:${{ github.sha }}
+          format: spdx-json
+          output-file: release-sbom-${{ matrix.service_name }}.spdx.json
+          upload-artifact: false
 
       - name: Upload release SBOM
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -225,3 +221,21 @@ jobs:
             exit 1
           }
           cosign sign --yes "${IMAGE_REF}"
+
+      - name: Write publish summary
+        if: always()
+        env:
+          IMAGE_DIGEST: ${{ steps.build_and_push.outputs.digest }}
+        run: |
+          {
+            echo "## Publish summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| service | \`${{ matrix.service_name }}\` |"
+            echo "| registry provider | \`${{ inputs.registry_provider }}\` |"
+            echo "| base ref | \`${{ steps.tags.outputs.base_ref }}\` |"
+            echo "| digest | \`${IMAGE_DIGEST}\` |"
+            echo "| sbom artifact | \`release-sbom-${{ matrix.service_name }}-${{ inputs.registry_provider }}\` |"
+            echo "| signing enabled | \`${{ inputs.sign_images }}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
