@@ -2,27 +2,9 @@ name: CodeQL
 
 on:
   pull_request:
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/codeql.yml"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
-      - "Makefile"
   push:
     branches:
       - main
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/codeql.yml"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
-      - "Makefile"
   schedule:
     - cron: "0 3 * * 1"
 
