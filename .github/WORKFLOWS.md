@@ -10,6 +10,7 @@
 - `frontend-s3-deploy.yml`: frontend deploy plus post-deploy smoke test.
 - `dast.yml`: manual live-target DAST.
 - `smoke-tests.yml`: scheduled/manual stable-environment smoke checks.
+- `integration-tests.yml`: scheduled/manual compose-backed gateway integration tests, with the same flow reused in PR CI when gateway-facing paths change.
 - `scorecard.yml`: scheduled OSSF Scorecard governance report artifact.
 
 ## Configuration

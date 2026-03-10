@@ -26,6 +26,7 @@ jobs:
       run_notification: ${{ steps.filter.outputs.run_notification }}
       run_java: ${{ steps.filter.outputs.run_java }}
       run_images: ${{ steps.filter.outputs.run_images }}
+      run_integration: ${{ steps.filter.outputs.run_integration }}
       java_matrix: ${{ steps.filter.outputs.java_matrix }}
       image_matrix: ${{ steps.filter.outputs.image_matrix }}
     steps:
@@ -133,12 +134,13 @@ jobs:
             "run_notification": results["workflow_config"] or results["notification_service"],
             "run_java": bool(selected_java),
             "run_images": bool(selected_images),
+            "run_integration": results["workflow_config"] or results["frontend"] or results["gateway"] or results["auth_service"] or results["api_service"] or results["audit_service"] or results["mailer_service"] or results["notification_service"],
             "java_matrix": json.dumps(selected_java),
             "image_matrix": json.dumps(selected_images),
           }
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-            for name in ("run_frontend", "run_notification", "run_java", "run_images"):
+            for name in ("run_frontend", "run_notification", "run_java", "run_images", "run_integration"):
               fh.write(f"{name}={'true' if outputs[name] else 'false'}\n")
             fh.write(f"java_matrix={outputs['java_matrix']}\n")
             fh.write(f"image_matrix={outputs['image_matrix']}\n")
@@ -358,6 +360,26 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image_name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
 
+  gateway-integration:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_integration == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Run gateway integration checks
+        run: make integration-test
+
   ci-status:
     name: CI
     if: always()
@@ -371,6 +393,7 @@ jobs:
       - java-services
       - notification-service
       - image-builds
+      - gateway-integration
     runs-on: ubuntu-latest
     steps:
       - name: Check upstream job results
@@ -384,6 +407,7 @@ jobs:
           JAVA_SERVICES: ${{ needs.java-services.result }}
           NOTIFICATION_SERVICE: ${{ needs.notification-service.result }}
           IMAGE_BUILDS: ${{ needs.image-builds.result }}
+          GATEWAY_INTEGRATION: ${{ needs.gateway-integration.result }}
         run: |
           if [[ "${CHANGES}" != "success" ]]; then
             echo "::error::CI change detection failed with result ${CHANGES}."
@@ -397,7 +421,8 @@ jobs:
             "${FRONTEND_BUILD}" \
             "${JAVA_SERVICES}" \
             "${NOTIFICATION_SERVICE}" \
-            "${IMAGE_BUILDS}"; do
+            "${IMAGE_BUILDS}" \
+            "${GATEWAY_INTEGRATION}"; do
             if [[ "${result}" != "success" && "${result}" != "skipped" ]]; then
               echo "::error::CI dependency failed with result ${result}."
               exit 1

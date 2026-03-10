@@ -1,5 +1,7 @@
 package com.demo.devops.apiservice.web;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.demo.devops.apiservice.client.AuditClient;
 import com.demo.devops.apiservice.client.MailerClient;
 import com.demo.devops.apiservice.client.NotificationClient;
@@ -15,8 +17,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -31,12 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class ApiController {
-  private static final Pattern STATUS_PATTERN = Pattern.compile("\"status\"\\s*:\\s*\"([^\"]+)\"");
-
   private final MailerClient mailerClient;
   private final NotificationClient notificationClient;
   private final AuditClient auditClient;
   private final HttpClient healthClient;
+  private final ObjectMapper objectMapper;
   private final URI authHealthUri;
   private final URI auditHealthUri;
   private final URI mailerHealthUri;
@@ -53,9 +52,8 @@ public class ApiController {
     this.mailerClient = mailerClient;
     this.notificationClient = notificationClient;
     this.auditClient = auditClient;
-    this.healthClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(2))
-        .build();
+    this.healthClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+    this.objectMapper = new ObjectMapper();
     this.authHealthUri = URI.create(authHealthUrl);
     this.auditHealthUri = URI.create(deriveHealthUrl(auditUrl, "/audit/events", "/audit/health"));
     this.mailerHealthUri = URI.create(deriveHealthUrl(mailerUrl, "/send", "/health"));
@@ -152,8 +150,16 @@ public class ApiController {
   }
 
   private String extractStatus(String body) {
-    Matcher matcher = STATUS_PATTERN.matcher(body);
-    return matcher.find() ? matcher.group(1) : "ok";
+    try {
+      JsonNode node = objectMapper.readTree(body);
+      JsonNode status = node.get("status");
+      if (status != null && status.isTextual() && !status.asText().isBlank()) {
+        return status.asText();
+      }
+    } catch (IOException ignored) {
+      // Fall back to a generic healthy state when upstream responds with non-JSON.
+    }
+    return "ok";
   }
 
   public record DashboardStatusResponse(List<ServiceStatus> services) {}
