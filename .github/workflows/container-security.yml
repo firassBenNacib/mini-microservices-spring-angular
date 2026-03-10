@@ -56,9 +56,19 @@ jobs:
           base = os.environ.get("BASE_SHA", "")
           head = os.environ["GITHUB_SHA"]
 
-          if event == "pull_request":
+          def commit_exists(ref):
+            if not ref:
+              return False
+            return subprocess.run(
+              ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+              check=False,
+            ).returncode == 0
+
+          if event == "pull_request" and commit_exists(base):
             start = base
-          elif before and before != ZERO:
+          elif before and before != ZERO and commit_exists(before):
             start = before
           else:
             start = ""
