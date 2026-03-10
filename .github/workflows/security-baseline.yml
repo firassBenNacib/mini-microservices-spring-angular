@@ -44,32 +44,6 @@ defaults:
     shell: bash
 
 jobs:
-  gitleaks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Run gitleaks
-        id: gitleaks
-        continue-on-error: true
-        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
-
-      - name: Fail if gitleaks detected secrets
-        if: steps.gitleaks.outcome == 'failure'
-        run: |
-          echo "Gitleaks detected one or more secrets."
-          exit 1
-
   trivy-secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -155,18 +129,16 @@ jobs:
     name: Security Baseline
     if: always()
     needs:
-      - gitleaks
       - trivy-secrets
       - trivy-config
     runs-on: ubuntu-latest
     steps:
       - name: Check upstream job results
         env:
-          GITLEAKS: ${{ needs.gitleaks.result }}
           TRIVY_SECRETS: ${{ needs.trivy-secrets.result }}
           TRIVY_CONFIG: ${{ needs.trivy-config.result }}
         run: |
-          for result in "${GITLEAKS}" "${TRIVY_SECRETS}" "${TRIVY_CONFIG}"; do
+          for result in "${TRIVY_SECRETS}" "${TRIVY_CONFIG}"; do
             if [[ "${result}" != "success" ]]; then
               echo "::error::Security Baseline dependency failed with result ${result}."
               exit 1

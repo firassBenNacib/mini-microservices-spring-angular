@@ -5,7 +5,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  security-events: write
 
 concurrency:
   group: dependency-review-${{ github.event.pull_request.number || github.ref }}
@@ -16,8 +16,40 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     steps:
-      - name: Dependency review
-        uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9 # v4.7.1
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
         with:
-          fail-on-severity: high
-          comment-summary-in-pr: always
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Dependency vulnerability scan
+        id: trivy_vuln
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # 0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          hide-progress: true
+          exit-code: "1"
+          format: sarif
+          output: trivy-dependencies.sarif
+
+      - name: Upload dependency scan SARIF
+        if: always() && hashFiles('trivy-dependencies.sarif') != ''
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        with:
+          sarif_file: trivy-dependencies.sarif
+          category: dependency-review
+
+      - name: Fail if dependency scan detected high-risk vulnerabilities
+        if: steps.trivy_vuln.outcome == 'failure'
+        run: |
+          echo "Dependency vulnerability scan detected one or more HIGH or CRITICAL issues."
+          exit 1
