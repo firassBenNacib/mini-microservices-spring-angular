@@ -49,5 +49,13 @@ jobs:
             exit 1
           }
 
+      - name: Set smoke authentication mode
+        run: |
+          if [[ -n "${SMOKE_AUTH_EMAIL}" && -n "${SMOKE_AUTH_PASSWORD}" ]]; then
+            echo "REQUIRE_AUTH_SMOKE=true" >> "${GITHUB_ENV}"
+          else
+            echo "REQUIRE_AUTH_SMOKE=false" >> "${GITHUB_ENV}"
+          fi
+
       - name: Run deployed smoke tests
         run: bash ./scripts/smoke_test.sh --base-url "${SMOKE_BASE_URL}"

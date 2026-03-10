@@ -163,7 +163,8 @@ Common targets:
 - `make ps`: show container status
 - `make logs`: tail gateway, auth-service, and api-service logs
 - `make compose-validate`: validate compose overlays against `.env.local.example`
-- `make smoke-test BASE_URL=https://example.com`: run shallow HTTP smoke checks
+- `make smoke-test BASE_URL=https://example.com`: run HTTP smoke checks and authenticated checks when credentials are configured
+- `make integration-test`: run a compose-backed gateway integration flow from local source
 - `make publish-frontend-build`: build the Angular frontend only
 - `make publish-frontend BUCKET=<bucket> [DISTRIBUTION_ID=<id>]`: publish frontend assets to object storage
 - `make push-dockerhub DOCKERHUB_USERNAME=<name> ...`: build and push all images to DockerHub
@@ -191,13 +192,14 @@ The repo uses a small set of production-oriented workflows under [`.github/workf
 - `container-security.yml`: SBOM generation plus Grype image scanning; Grype remains a CI gate and artifact report, while GitHub code scanning stays focused on source and SARIF-based findings
 - `image-advisory-report.yml`: scheduled/manual stricter Grype reporting for fixed `HIGH,CRITICAL` image vulnerabilities
 - `dast.yml`: manual live-target DAST with OWASP ZAP and optional Nuclei
-- `smoke-tests.yml`: scheduled and manual shallow smoke tests against the stable deployed application
+- `smoke-tests.yml`: scheduled and manual smoke tests against the stable deployed application, including authenticated flows when smoke credentials are configured
+- `integration-tests.yml`: scheduled/manual compose-backed gateway integration checks, and the same flow is reused as a PR CI gate when relevant paths change
 - `scorecard.yml`: OSSF Scorecard report artifact for repository governance posture
 - `dockerhub-publish.yml`: publish, attest, and keylessly sign release-tagged images in DockerHub
 - `ecr-publish.yml`: publish, attest, and keylessly sign release-tagged images in ECR
 - `frontend-s3-deploy.yml`: build the frontend, deploy it to object storage, and run release smoke checks when `SMOKE_BASE_URL` is configured
 
-Normal release behavior is tag-driven:
+Normal publish behavior is tag-driven:
 
 - push a `v*` tag to trigger image publish and frontend deploy workflows
 - use `workflow_dispatch` for live-environment workflows and controlled reruns or manual backfills
