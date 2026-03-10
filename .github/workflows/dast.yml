@@ -34,6 +34,7 @@ jobs:
       enable_nuclei: ${{ steps.validate.outputs.enable_nuclei }}
     env:
       DAST_TARGET_URL: ${{ inputs.target_url != '' && inputs.target_url || vars.DAST_TARGET_URL }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -56,6 +57,8 @@ jobs:
     timeout-minutes: 45
     environment:
       name: production
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -77,6 +80,8 @@ jobs:
     timeout-minutes: 30
     environment:
       name: production
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2

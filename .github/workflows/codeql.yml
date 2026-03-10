@@ -28,6 +28,8 @@ jobs:
     outputs:
       run_codeql: ${{ steps.filter.outputs.run_codeql }}
       codeql_matrix: ${{ steps.filter.outputs.codeql_matrix }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -108,6 +110,8 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.codeql_matrix) }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
