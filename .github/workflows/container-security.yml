@@ -21,8 +21,7 @@ defaults:
     shell: bash
 
 env:
-  SYFT_VERSION: v1.42.2
-  GRYPE_VERSION: v0.109.1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   changes:
@@ -144,17 +143,13 @@ jobs:
             --tag "local/${{ matrix.image_name }}:${{ github.sha }}" \
             "${{ matrix.context }}"
 
-      - name: Install Syft
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/syft.tar.gz"
-          tar -xzf "$tmp/syft.tar.gz" -C "$tmp"
-          install "$tmp/syft" /usr/local/bin/syft
-
       - name: Generate image SBOM
-        run: |
-          syft "docker:local/${{ matrix.image_name }}:${{ github.sha }}" \
-            -o "spdx-json=sbom-${{ matrix.image_name }}.spdx.json"
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
+        with:
+          image: local/${{ matrix.image_name }}:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.image_name }}.spdx.json
+          upload-artifact: false
 
       - name: Upload image SBOM
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -162,21 +157,16 @@ jobs:
           name: sbom-${{ matrix.image_name }}
           path: sbom-${{ matrix.image_name }}.spdx.json
 
-      - name: Install Grype
-        run: |
-          tmp="$(mktemp -d)"
-          curl -fsSL "https://github.com/anchore/grype/releases/download/${GRYPE_VERSION}/grype_${GRYPE_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/grype.tar.gz"
-          tar -xzf "$tmp/grype.tar.gz" -C "$tmp"
-          install "$tmp/grype" /usr/local/bin/grype
-
       - name: Scan image with Grype
         id: grype
-        run: |
-          set -o pipefail
-          grype "docker:local/${{ matrix.image_name }}:${{ github.sha }}" \
-            --only-fixed \
-            --fail-on critical \
-            -o table | tee "grype-${{ matrix.image_name }}.txt"
+        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c # v7.3.2
+        with:
+          image: local/${{ matrix.image_name }}:${{ github.sha }}
+          fail-build: true
+          only-fixed: true
+          severity-cutoff: critical
+          output-format: table
+          output-file: grype-${{ matrix.image_name }}.txt
 
       - name: Upload Grype report
         if: always() && hashFiles(format('grype-{0}.txt', matrix.image_name)) != ''
@@ -193,6 +183,26 @@ jobs:
       - image-security
     runs-on: ubuntu-latest
     steps:
+      - name: Write Container Security summary
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          IMAGE_SECURITY: ${{ needs.image-security.result }}
+          RUN_IMAGES: ${{ needs.changes.outputs.run_images }}
+          IMAGE_MATRIX: ${{ needs.changes.outputs.image_matrix }}
+        run: |
+          {
+            echo "## Container Security summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| changes | ${CHANGES} |"
+            echo "| image-security | ${IMAGE_SECURITY} |"
+            echo "| run_images | ${RUN_IMAGES} |"
+            echo "| matrix | \`${IMAGE_MATRIX}\` |"
+            echo
+            echo "Grype reports and SBOMs are uploaded as workflow artifacts."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Check upstream job results
         run: |
           if [[ "${{ needs.changes.result }}" != "success" ]]; then

@@ -165,6 +165,24 @@ jobs:
       - analyze
     runs-on: ubuntu-latest
     steps:
+      - name: Write CodeQL summary
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          ANALYZE: ${{ needs.analyze.result }}
+          RUN_CODEQL: ${{ needs.changes.outputs.run_codeql }}
+          CODEQL_MATRIX: ${{ needs.changes.outputs.codeql_matrix }}
+        run: |
+          {
+            echo "## CodeQL summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| changes | ${CHANGES} |"
+            echo "| analyze | ${ANALYZE} |"
+            echo "| run_codeql | ${RUN_CODEQL} |"
+            echo "| matrix | \`${CODEQL_MATRIX}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Check upstream job results
         run: |
           if [[ "${{ needs.changes.result }}" != "success" ]]; then

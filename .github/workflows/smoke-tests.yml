@@ -54,3 +54,15 @@ jobs:
 
       - name: Run deployed smoke tests
         run: bash ./scripts/smoke_test.sh --base-url "${SMOKE_BASE_URL}"
+
+      - name: Write smoke summary
+        if: always()
+        run: |
+          {
+            echo "## Smoke test summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| base url | \`${SMOKE_BASE_URL}\` |"
+            echo "| auth mode | $([[ \"${REQUIRE_AUTH_SMOKE}\" == \"true\" ]] && echo authenticated || echo anonymous) |"
+          } >> "${GITHUB_STEP_SUMMARY}"
