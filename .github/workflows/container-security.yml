@@ -116,3 +116,17 @@ jobs:
         with:
           sarif_file: grype-${{ matrix.image_name }}.sarif
           category: grype-${{ matrix.image_name }}
+
+  container-security-status:
+    name: Container Security
+    if: always()
+    needs:
+      - image-security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream job results
+        run: |
+          if [[ "${{ needs.image-security.result }}" != "success" ]]; then
+            echo "::error::Container Security dependency failed with result ${{ needs.image-security.result }}."
+            exit 1
+          fi

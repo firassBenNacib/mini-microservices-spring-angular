@@ -255,3 +255,43 @@ jobs:
           tags: local/${{ matrix.image_name }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image_name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}
+
+  ci-status:
+    name: CI
+    if: always()
+    needs:
+      - workflow-lint
+      - dockerfile-lint
+      - shell-lint
+      - compose-validate
+      - frontend-build
+      - java-services
+      - notification-service
+      - image-builds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream job results
+        env:
+          WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
+          DOCKERFILE_LINT: ${{ needs.dockerfile-lint.result }}
+          SHELL_LINT: ${{ needs.shell-lint.result }}
+          COMPOSE_VALIDATE: ${{ needs.compose-validate.result }}
+          FRONTEND_BUILD: ${{ needs.frontend-build.result }}
+          JAVA_SERVICES: ${{ needs.java-services.result }}
+          NOTIFICATION_SERVICE: ${{ needs.notification-service.result }}
+          IMAGE_BUILDS: ${{ needs.image-builds.result }}
+        run: |
+          for result in \
+            "${WORKFLOW_LINT}" \
+            "${DOCKERFILE_LINT}" \
+            "${SHELL_LINT}" \
+            "${COMPOSE_VALIDATE}" \
+            "${FRONTEND_BUILD}" \
+            "${JAVA_SERVICES}" \
+            "${NOTIFICATION_SERVICE}" \
+            "${IMAGE_BUILDS}"; do
+            if [[ "${result}" != "success" ]]; then
+              echo "::error::CI dependency failed with result ${result}."
+              exit 1
+            fi
+          done

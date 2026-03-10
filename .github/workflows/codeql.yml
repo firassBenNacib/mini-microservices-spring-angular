@@ -108,3 +108,17 @@ jobs:
         uses: github/codeql-action/analyze@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
         with:
           category: /language:${{ matrix.language }}
+
+  codeql-status:
+    name: CodeQL
+    if: always()
+    needs:
+      - analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream job results
+        run: |
+          if [[ "${{ needs.analyze.result }}" != "success" ]]; then
+            echo "::error::CodeQL dependency failed with result ${{ needs.analyze.result }}."
+            exit 1
+          fi

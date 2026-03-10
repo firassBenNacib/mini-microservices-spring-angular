@@ -150,3 +150,25 @@ jobs:
         run: |
           echo "Trivy detected one or more high-risk misconfigurations."
           exit 1
+
+  security-baseline-status:
+    name: Security Baseline
+    if: always()
+    needs:
+      - gitleaks
+      - trivy-secrets
+      - trivy-config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check upstream job results
+        env:
+          GITLEAKS: ${{ needs.gitleaks.result }}
+          TRIVY_SECRETS: ${{ needs.trivy-secrets.result }}
+          TRIVY_CONFIG: ${{ needs.trivy-config.result }}
+        run: |
+          for result in "${GITLEAKS}" "${TRIVY_SECRETS}" "${TRIVY_CONFIG}"; do
+            if [[ "${result}" != "success" ]]; then
+              echo "::error::Security Baseline dependency failed with result ${result}."
+              exit 1
+            fi
+          done
