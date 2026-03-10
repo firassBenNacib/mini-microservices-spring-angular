@@ -33,7 +33,7 @@
     "jest-preset-angular": "^14.6.2",
     "jsdom": "^22.1.0",
     "ts-jest": "^29.4.6",
-    "typescript": "~5.6.3"
+    "typescript": "~5.9.3"
   },
   "overrides": {
     "tar": "7.5.7",
