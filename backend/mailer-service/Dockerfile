@@ -9,11 +9,15 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
 
-FROM eclipse-temurin:17-jre-alpine@sha256:7aa804a1824d18d06c68598fe1c2953b5b203823731be7b9298bb3e0f1920b0d
+FROM eclipse-temurin:17-jre@sha256:ff692acf872589e72ca71b416b3e949ec19f35ebe8abb5365d2f31bce298e762
 
 WORKDIR /app
 
-RUN addgroup -S app && adduser -S -G app app
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --system app && \
+    useradd --system --gid app --create-home --home-dir /home/app app
 
 COPY --from=build --chown=app:app /app/target/*.jar /app/app.jar
 
@@ -24,6 +28,6 @@ ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/./u
 EXPOSE 8083
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8083/health || exit 1
+  CMD curl --fail --silent http://127.0.0.1:8083/health >/dev/null || exit 1
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

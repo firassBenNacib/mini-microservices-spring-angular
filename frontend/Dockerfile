@@ -14,22 +14,16 @@ RUN npm run build && \
       cp -R dist/web-frontend/browser/* dist/web-frontend/; \
     fi
 
-FROM alpine:3.20@sha256:a4f4213abb84c497377b8544c81b3564f313746700372ec4fe84653e4fb03805 AS tools
-RUN apk add --no-cache busybox
-
-FROM nginx:1.28-alpine@sha256:15e96e59aa3b0aada3a121296e3bce117721f42d88f5f64217ef4b18f458c6ab
-
-RUN apk add --no-cache nginx-mod-http-brotli
+FROM nginx:1.28@sha256:810ad1346ec7fd3d0a246c178f2b82e73a43640c691774405adfd38a751ecce8
 
 COPY nginx.main.conf /etc/nginx/nginx.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/web-frontend /usr/share/nginx/html
-COPY --from=tools /bin/busybox /busybox
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["/busybox","wget","-qO-","http://127.0.0.1:8080/"]
+  CMD curl --fail --silent http://127.0.0.1:8080/ >/dev/null || exit 1
 
 USER nginx
 
