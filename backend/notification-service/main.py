@@ -255,7 +255,6 @@ async def twilio_status_callback(
     raise HTTPException(status_code=401, detail="invalid signature")
 
   message_sid = str(form.get("MessageSid", form.get("SmsSid", "")))
-  message_status = str(form.get("MessageStatus", "unknown"))
   to = str(form.get("To", ""))
   error_code = str(form.get("ErrorCode", ""))
   error_message = str(form.get("ErrorMessage", ""))
