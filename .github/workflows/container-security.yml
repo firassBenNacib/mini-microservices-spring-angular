@@ -20,6 +20,10 @@ defaults:
   run:
     shell: bash
 
+env:
+  SYFT_VERSION: v1.42.2
+  GRYPE_VERSION: v0.109.1
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -27,14 +31,7 @@ jobs:
     outputs:
       run_images: ${{ steps.filter.outputs.run_images }}
       image_matrix: ${{ steps.filter.outputs.image_matrix }}
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -134,14 +131,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.image_matrix) }}
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -154,13 +144,17 @@ jobs:
             --tag "local/${{ matrix.image_name }}:${{ github.sha }}" \
             "${{ matrix.context }}"
 
+      - name: Install Syft
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/syft.tar.gz"
+          tar -xzf "$tmp/syft.tar.gz" -C "$tmp"
+          install "$tmp/syft" /usr/local/bin/syft
+
       - name: Generate image SBOM
-        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
-        with:
-          image: local/${{ matrix.image_name }}:${{ github.sha }}
-          format: spdx-json
-          output-file: sbom-${{ matrix.image_name }}.spdx.json
-          upload-artifact: "false"
+        run: |
+          syft "docker:local/${{ matrix.image_name }}:${{ github.sha }}" \
+            -o "spdx-json=sbom-${{ matrix.image_name }}.spdx.json"
 
       - name: Upload image SBOM
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -168,17 +162,21 @@ jobs:
           name: sbom-${{ matrix.image_name }}
           path: sbom-${{ matrix.image_name }}.spdx.json
 
+      - name: Install Grype
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/anchore/grype/releases/download/${GRYPE_VERSION}/grype_${GRYPE_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/grype.tar.gz"
+          tar -xzf "$tmp/grype.tar.gz" -C "$tmp"
+          install "$tmp/grype" /usr/local/bin/grype
+
       - name: Scan image with Grype
         id: grype
-        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c # v7.3.2
-        with:
-          image: local/${{ matrix.image_name }}:${{ github.sha }}
-          fail-build: true
-          severity-cutoff: critical
-          output-format: table
-          output-file: grype-${{ matrix.image_name }}.txt
-          cache-db: true
-          only-fixed: true
+        run: |
+          set -o pipefail
+          grype "docker:local/${{ matrix.image_name }}:${{ github.sha }}" \
+            --only-fixed \
+            --fail-on critical \
+            -o table | tee "grype-${{ matrix.image_name }}.txt"
 
       - name: Upload Grype report
         if: always() && hashFiles(format('grype-{0}.txt', matrix.image_name)) != ''

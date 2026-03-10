@@ -11,40 +11,38 @@ concurrency:
   group: dependency-review-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  TRIVY_VERSION: v0.69.3
+
 jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
+      - name: Install Trivy
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" -o "$tmp/trivy.tar.gz"
+          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp"
+          install "$tmp/trivy" /usr/local/bin/trivy
+
       - name: Dependency vulnerability scan
         id: trivy_vuln
         continue-on-error: true
         run: |
-          docker run --rm \
-            -v "$PWD:/work" \
-            -w /work \
-            aquasec/trivy:0.58.1 \
-            fs \
+          trivy fs . \
             --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --no-progress \
-            --exit-code 1 \
             --format sarif \
             --output trivy-dependencies.sarif \
-            .
+            --exit-code 1 \
+            --quiet
 
       - name: Upload dependency scan SARIF
         if: always() && hashFiles('trivy-dependencies.sarif') != ''
