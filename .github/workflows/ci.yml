@@ -18,6 +18,132 @@ defaults:
     shell: bash
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      run_frontend: ${{ steps.filter.outputs.run_frontend }}
+      run_notification: ${{ steps.filter.outputs.run_notification }}
+      run_java: ${{ steps.filter.outputs.run_java }}
+      run_images: ${{ steps.filter.outputs.run_images }}
+      java_matrix: ${{ steps.filter.outputs.java_matrix }}
+      image_matrix: ${{ steps.filter.outputs.image_matrix }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed areas
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          python3 <<'PY'
+          import fnmatch
+          import json
+          import os
+          import subprocess
+
+          ZERO = "0" * 40
+          event = os.environ["EVENT_NAME"]
+          before = os.environ.get("BEFORE_SHA", "")
+          base = os.environ.get("BASE_SHA", "")
+          head = os.environ["GITHUB_SHA"]
+
+          if event == "pull_request":
+            start = base
+          elif before and before != ZERO:
+            start = before
+          else:
+            start = ""
+
+          if start:
+            diff = subprocess.check_output(["git", "diff", "--name-only", start, head], text=True)
+            files = [line for line in diff.splitlines() if line]
+          else:
+            files = ["__ALL__"]
+
+          filters = {
+            "workflow_config": [".github/actions/**", ".github/workflows/**"],
+            "frontend": ["frontend/**"],
+            "gateway": ["gateway/**"],
+            "auth_service": ["backend/auth-service/**", "backend/pom.xml"],
+            "api_service": ["backend/api-service/**", "backend/pom.xml"],
+            "audit_service": ["backend/audit-service/**", "backend/pom.xml"],
+            "mailer_service": ["backend/mailer-service/**", "backend/pom.xml"],
+            "notification_service": ["backend/notification-service/**"],
+          }
+
+          def matches(patterns):
+            if "__ALL__" in files:
+              return True
+            return any(fnmatch.fnmatch(path, pattern) for path in files for pattern in patterns)
+
+          results = {name: matches(patterns) for name, patterns in filters.items()}
+          java_entries = [
+            {"service_dir": "backend/auth-service"},
+            {"service_dir": "backend/api-service"},
+            {"service_dir": "backend/audit-service"},
+            {"service_dir": "backend/mailer-service"},
+          ]
+          image_entries = [
+            {"image_name": "auth-service", "context": "backend/auth-service"},
+            {"image_name": "api-service", "context": "backend/api-service"},
+            {"image_name": "audit-service", "context": "backend/audit-service"},
+            {"image_name": "mailer-service", "context": "backend/mailer-service"},
+            {"image_name": "notification-service", "context": "backend/notification-service"},
+            {"image_name": "gateway", "context": "gateway"},
+            {"image_name": "frontend", "context": "frontend"},
+          ]
+
+          selected_java = [
+            entry for entry in java_entries
+            if results["workflow_config"] or results[entry["service_dir"].split("/")[-1].replace("-", "_")]
+          ]
+          selected_images = [
+            entry for entry in image_entries
+            if results["workflow_config"] or (
+              entry["image_name"] == "frontend" and results["frontend"]
+            ) or (
+              entry["image_name"] == "gateway" and results["gateway"]
+            ) or (
+              entry["image_name"] == "auth-service" and results["auth_service"]
+            ) or (
+              entry["image_name"] == "api-service" and results["api_service"]
+            ) or (
+              entry["image_name"] == "audit-service" and results["audit_service"]
+            ) or (
+              entry["image_name"] == "mailer-service" and results["mailer_service"]
+            ) or (
+              entry["image_name"] == "notification-service" and results["notification_service"]
+            )
+          ]
+
+          outputs = {
+            "run_frontend": results["workflow_config"] or results["frontend"],
+            "run_notification": results["workflow_config"] or results["notification_service"],
+            "run_java": bool(selected_java),
+            "run_images": bool(selected_images),
+            "java_matrix": json.dumps(selected_java),
+            "image_matrix": json.dumps(selected_images),
+          }
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+            for name in ("run_frontend", "run_notification", "run_java", "run_images"):
+              fh.write(f"{name}={'true' if outputs[name] else 'false'}\n")
+            fh.write(f"java_matrix={outputs['java_matrix']}\n")
+            fh.write(f"image_matrix={outputs['image_matrix']}\n")
+          PY
+
   workflow-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -100,6 +226,9 @@ jobs:
         run: make compose-validate
 
   frontend-build:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -127,16 +256,15 @@ jobs:
         run: npm run build
 
   java-services:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_java == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        service_dir:
-          - backend/auth-service
-          - backend/api-service
-          - backend/audit-service
-          - backend/mailer-service
+        include: ${{ fromJSON(needs.changes.outputs.java_matrix) }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -160,6 +288,9 @@ jobs:
         run: mvn -B -ntp verify
 
   notification-service:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_notification == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -193,26 +324,15 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py'
 
   image-builds:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_images == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image_name: auth-service
-            context: backend/auth-service
-          - image_name: api-service
-            context: backend/api-service
-          - image_name: audit-service
-            context: backend/audit-service
-          - image_name: mailer-service
-            context: backend/mailer-service
-          - image_name: notification-service
-            context: backend/notification-service
-          - image_name: gateway
-            context: gateway
-          - image_name: frontend
-            context: frontend
+        include: ${{ fromJSON(needs.changes.outputs.image_matrix) }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -246,6 +366,7 @@ jobs:
       - dockerfile-lint
       - shell-lint
       - compose-validate
+      - changes
       - frontend-build
       - java-services
       - notification-service
@@ -254,6 +375,7 @@ jobs:
     steps:
       - name: Check upstream job results
         env:
+          CHANGES: ${{ needs.changes.result }}
           WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
           DOCKERFILE_LINT: ${{ needs.dockerfile-lint.result }}
           SHELL_LINT: ${{ needs.shell-lint.result }}
@@ -263,6 +385,10 @@ jobs:
           NOTIFICATION_SERVICE: ${{ needs.notification-service.result }}
           IMAGE_BUILDS: ${{ needs.image-builds.result }}
         run: |
+          if [[ "${CHANGES}" != "success" ]]; then
+            echo "::error::CI change detection failed with result ${CHANGES}."
+            exit 1
+          fi
           for result in \
             "${WORKFLOW_LINT}" \
             "${DOCKERFILE_LINT}" \
@@ -272,7 +398,7 @@ jobs:
             "${JAVA_SERVICES}" \
             "${NOTIFICATION_SERVICE}" \
             "${IMAGE_BUILDS}"; do
-            if [[ "${result}" != "success" ]]; then
+            if [[ "${result}" != "success" && "${result}" != "skipped" ]]; then
               echo "::error::CI dependency failed with result ${result}."
               exit 1
             fi

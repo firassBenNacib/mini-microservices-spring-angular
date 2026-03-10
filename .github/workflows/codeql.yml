@@ -22,16 +22,92 @@ defaults:
     shell: bash
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      run_codeql: ${{ steps.filter.outputs.run_codeql }}
+      codeql_matrix: ${{ steps.filter.outputs.codeql_matrix }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed areas
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          python3 <<'PY'
+          import fnmatch
+          import json
+          import os
+          import subprocess
+
+          ZERO = "0" * 40
+          event = os.environ["EVENT_NAME"]
+          before = os.environ.get("BEFORE_SHA", "")
+          base = os.environ.get("BASE_SHA", "")
+          head = os.environ["GITHUB_SHA"]
+
+          if event == "pull_request":
+            start = base
+          elif before and before != ZERO:
+            start = before
+          else:
+            start = ""
+
+          if start:
+            diff = subprocess.check_output(["git", "diff", "--name-only", start, head], text=True)
+            files = [line for line in diff.splitlines() if line]
+          else:
+            files = ["__ALL__"]
+
+          filters = {
+            "workflow_config": [".github/actions/**", ".github/workflows/**"],
+            "frontend": ["frontend/**"],
+            "notification_service": ["backend/notification-service/**"],
+            "any_java": ["backend/auth-service/**", "backend/api-service/**", "backend/audit-service/**", "backend/mailer-service/**", "backend/pom.xml"],
+          }
+
+          def matches(patterns):
+            if "__ALL__" in files:
+              return True
+            return any(fnmatch.fnmatch(path, pattern) for path in files for pattern in patterns)
+
+          results = {name: matches(patterns) for name, patterns in filters.items()}
+          codeql_entries = []
+          if results["workflow_config"] or results["any_java"]:
+            codeql_entries.append({"language": "java-kotlin"})
+          if results["workflow_config"] or results["frontend"]:
+            codeql_entries.append({"language": "javascript-typescript"})
+          if results["workflow_config"] or results["notification_service"]:
+            codeql_entries.append({"language": "python"})
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+            fh.write(f"run_codeql={'true' if codeql_entries else 'false'}\n")
+            fh.write(f"codeql_matrix={json.dumps(codeql_entries)}\n")
+          PY
+
   analyze:
+    needs:
+      - changes
+    if: needs.changes.outputs.run_codeql == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: java-kotlin
-          - language: javascript-typescript
-          - language: python
+        include: ${{ fromJSON(needs.changes.outputs.codeql_matrix) }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -95,12 +171,17 @@ jobs:
     name: CodeQL
     if: always()
     needs:
+      - changes
       - analyze
     runs-on: ubuntu-latest
     steps:
       - name: Check upstream job results
         run: |
-          if [[ "${{ needs.analyze.result }}" != "success" ]]; then
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "::error::CodeQL change detection failed with result ${{ needs.changes.result }}."
+            exit 1
+          fi
+          if [[ "${{ needs.analyze.result }}" != "success" && "${{ needs.analyze.result }}" != "skipped" ]]; then
             echo "::error::CodeQL dependency failed with result ${{ needs.analyze.result }}."
             exit 1
           fi
