@@ -179,7 +179,7 @@ jobs:
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
 
       - name: Generate release SBOM
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
         with:
           image: local/release-${{ matrix.service_name }}:${{ github.sha }}
           format: spdx-json
