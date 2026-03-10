@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -50,14 +51,19 @@ logger.addHandler(handler)
 logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
 logger.propagate = False
 
+CONTROL_CHARS_RE = re.compile(r"[\r\n\t\x00-\x08\x0b\x0c\x0e-\x1f\x7f]+")
+
 
 def is_placeholder(value: str) -> bool:
   normalized = value.strip().lower()
+  parsed = urlparse(normalized)
+  host = (parsed.hostname or "").lower()
   return (
     normalized in PLACEHOLDER_VALUES
     or "placeholder" in normalized
     or normalized.startswith("your-")
-    or "example.com" in normalized
+    or host == "example.com"
+    or host.endswith(".example.com")
     or "replace-with" in normalized
   )
 
@@ -85,13 +91,36 @@ def mask_phone(number: str) -> str:
   return f"{number[:4]}***{number[-2:]}"
 
 
+def sanitize_for_log(value: object, max_length: int = 256) -> str:
+  sanitized = CONTROL_CHARS_RE.sub(" ", str(value)).strip()
+  if len(sanitized) > max_length:
+    return f"{sanitized[:max_length]}..."
+  return sanitized
+
+
+def normalize_callback_url(value: str) -> str:
+  if not value:
+    return ""
+  parsed = urlparse(value)
+  if parsed.scheme not in {"https", "http"}:
+    raise RuntimeError("TWILIO_STATUS_CALLBACK_URL must use http or https")
+  if parsed.username or parsed.password or parsed.fragment or not parsed.netloc:
+    raise RuntimeError("TWILIO_STATUS_CALLBACK_URL must be a clean absolute URL")
+  host = (parsed.hostname or "").lower()
+  if parsed.scheme == "http" and host not in {"127.0.0.1", "localhost"}:
+    raise RuntimeError("TWILIO_STATUS_CALLBACK_URL must use https outside localhost")
+  if host == "example.com" or host.endswith(".example.com"):
+    raise RuntimeError("TWILIO_STATUS_CALLBACK_URL must not use example.com placeholders")
+  return parsed.geturl()
+
+
 app = FastAPI()
 NOTIFY_API_KEY = require_secret("NOTIFY_API_KEY", os.getenv("NOTIFY_API_KEY"))
 TWILIO_ACCOUNT_SID = require_secret("TWILIO_ACCOUNT_SID", os.getenv("TWILIO_ACCOUNT_SID"))
 TWILIO_AUTH_TOKEN = require_secret("TWILIO_AUTH_TOKEN", os.getenv("TWILIO_AUTH_TOKEN"))
 TWILIO_FROM_NUMBER = require_secret("TWILIO_FROM_NUMBER", os.getenv("TWILIO_FROM_NUMBER"))
 TWILIO_TIMEOUT_MS = require_bounded_int("TWILIO_TIMEOUT_MS", os.getenv("TWILIO_TIMEOUT_MS"), 5000, 1000, 30000)
-TWILIO_STATUS_CALLBACK_URL = os.getenv("TWILIO_STATUS_CALLBACK_URL", "").strip()
+TWILIO_STATUS_CALLBACK_URL = normalize_callback_url(os.getenv("TWILIO_STATUS_CALLBACK_URL", "").strip())
 TWILIO_MESSAGES_URL = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
 E164_REGEX = re.compile(r"^\+[1-9]\d{7,14}$")
 
@@ -165,10 +194,10 @@ async def send_twilio_sms(to: str, body: str) -> str:
       extra={
         "extra_data": {
           "event": "twilio_sms_failed",
-          "to": mask_phone(to),
+          "to": sanitize_for_log(mask_phone(to)),
           "statusCode": response.status_code,
-          "providerCode": parsed.get("code"),
-          "providerMessage": parsed.get("message"),
+          "providerCode": sanitize_for_log(parsed.get("code", "")),
+          "providerMessage": sanitize_for_log(parsed.get("message", ""), 512),
         }
       },
     )
@@ -180,8 +209,8 @@ async def send_twilio_sms(to: str, body: str) -> str:
     extra={
       "extra_data": {
         "event": "twilio_sms_sent",
-        "to": mask_phone(to),
-        "providerMessageSid": sid,
+        "to": sanitize_for_log(mask_phone(to)),
+        "providerMessageSid": sanitize_for_log(sid),
       }
     },
   )
@@ -200,10 +229,10 @@ async def notify(request: NotificationRequest, x_notify_key: str | None = Header
     extra={
       "extra_data": {
         "event": "notification_sent",
-        "to": mask_phone(request.to),
-        "subject": request.subject,
+        "to": sanitize_for_log(mask_phone(request.to)),
+        "subject": sanitize_for_log(request.subject),
         "textLength": len(request.text),
-        "providerMessageSid": sid,
+        "providerMessageSid": sanitize_for_log(sid),
       }
     },
   )
@@ -241,11 +270,11 @@ async def twilio_status_callback(
     extra={
       "extra_data": {
         "event": "twilio_sms_delivery_status",
-        "providerMessageSid": message_sid,
-        "messageStatus": message_status,
-        "to": mask_phone(to) if to else "",
-        "errorCode": error_code,
-        "errorMessage": error_message,
+        "providerMessageSid": sanitize_for_log(message_sid),
+        "messageStatus": sanitize_for_log(message_status),
+        "to": sanitize_for_log(mask_phone(to)) if to else "",
+        "errorCode": sanitize_for_log(error_code),
+        "errorMessage": sanitize_for_log(error_message, 512),
       }
     },
   )
