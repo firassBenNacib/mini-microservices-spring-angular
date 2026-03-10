@@ -54,6 +54,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  SYFT_VERSION: v1.42.2
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -90,14 +93,7 @@ jobs:
             context: frontend
             dockerhub_image_name: mini-spring-frontend
             ecr_repo_name: frontend
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -180,13 +176,17 @@ jobs:
           tags: local/release-${{ matrix.service_name }}:${{ github.sha }}
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
 
+      - name: Install Syft
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz" -o "$tmp/syft.tar.gz"
+          tar -xzf "$tmp/syft.tar.gz" -C "$tmp"
+          install "$tmp/syft" /usr/local/bin/syft
+
       - name: Generate release SBOM
-        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
-        with:
-          image: local/release-${{ matrix.service_name }}:${{ github.sha }}
-          format: spdx-json
-          output-file: release-sbom-${{ matrix.service_name }}.spdx.json
-          upload-artifact: "false"
+        run: |
+          syft "docker:local/release-${{ matrix.service_name }}:${{ github.sha }}" \
+            -o "spdx-json=release-sbom-${{ matrix.service_name }}.spdx.json"
 
       - name: Upload release SBOM
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

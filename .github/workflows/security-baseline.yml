@@ -21,58 +21,77 @@ defaults:
   run:
     shell: bash
 
+env:
+  GITLEAKS_VERSION: v8.30.0
+  TRIVY_VERSION: v0.69.3
+
 jobs:
   gitleaks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Install Gitleaks
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" -o "$tmp/gitleaks.tar.gz"
+          tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp"
+          install "$tmp/gitleaks" /usr/local/bin/gitleaks
+
       - name: Run Gitleaks against git history
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: gitleaks
+        continue-on-error: true
+        run: |
+          gitleaks git . \
+            --report-format sarif \
+            --report-path gitleaks.sarif \
+            --redact
+
+      - name: Upload Gitleaks report
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+
+      - name: Fail if Gitleaks detected secrets
+        if: steps.gitleaks.outcome == 'failure'
+        run: |
+          echo "Gitleaks detected one or more secrets."
+          exit 1
 
   trivy-secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Install Trivy
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" -o "$tmp/trivy.tar.gz"
+          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp"
+          install "$tmp/trivy" /usr/local/bin/trivy
+
       - name: Trivy secret scan
         id: trivy_secrets
         continue-on-error: true
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: secret
-          format: sarif
-          output: trivy-secrets.sarif
-          exit-code: "1"
-          hide-progress: true
+        run: |
+          trivy fs . \
+            --scanners secret \
+            --format sarif \
+            --output trivy-secrets.sarif \
+            --exit-code 1 \
+            --quiet
 
       - name: Upload Trivy secrets SARIF
         if: always() && hashFiles('trivy-secrets.sarif') != ''
@@ -90,31 +109,29 @@ jobs:
   trivy-config:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
+      - name: Install Trivy
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" -o "$tmp/trivy.tar.gz"
+          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp"
+          install "$tmp/trivy" /usr/local/bin/trivy
+
       - name: Trivy config scan
         id: trivy_config
         continue-on-error: true
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          scan-type: config
-          scan-ref: .
-          format: sarif
-          output: trivy-config.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          hide-progress: true
+        run: |
+          trivy config . \
+            --format sarif \
+            --output trivy-config.sarif \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --quiet
 
       - name: Upload Trivy config SARIF
         if: always() && hashFiles('trivy-config.sarif') != ''
