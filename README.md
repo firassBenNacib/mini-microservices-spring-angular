@@ -241,7 +241,7 @@ Safe to push to a public repository:
 - example environment contracts:
   - `.env.local.example`
   - `.env.cloud-provider.example`
-- repo metadata such as `.github/dependabot.yml` and `.github/README.md`
+- repo metadata such as `.github/dependabot.yml` and `.github/WORKFLOWS.md`
 
 Keep local and do not commit:
 
