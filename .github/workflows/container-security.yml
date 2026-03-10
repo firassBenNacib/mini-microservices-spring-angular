@@ -20,9 +20,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -31,6 +28,11 @@ jobs:
       run_images: ${{ steps.filter.outputs.run_images }}
       image_matrix: ${{ steps.filter.outputs.image_matrix }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -131,6 +133,11 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.image_matrix) }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -149,7 +156,7 @@ jobs:
           image: local/${{ matrix.image_name }}:${{ github.sha }}
           format: spdx-json
           output-file: sbom-${{ matrix.image_name }}.spdx.json
-          upload-artifact: false
+          upload-artifact: "false"
 
       - name: Upload image SBOM
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -163,10 +170,11 @@ jobs:
         with:
           image: local/${{ matrix.image_name }}:${{ github.sha }}
           fail-build: true
-          only-fixed: true
           severity-cutoff: critical
           output-format: table
           output-file: grype-${{ matrix.image_name }}.txt
+          cache-db: true
+          only-fixed: true
 
       - name: Upload Grype report
         if: always() && hashFiles(format('grype-{0}.txt', matrix.image_name)) != ''

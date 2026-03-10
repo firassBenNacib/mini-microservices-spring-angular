@@ -32,6 +32,11 @@ jobs:
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
       SMOKE_AUTH_PASSWORD: ${{ secrets.SMOKE_AUTH_PASSWORD }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -54,15 +59,3 @@ jobs:
 
       - name: Run deployed smoke tests
         run: bash ./scripts/smoke_test.sh --base-url "${SMOKE_BASE_URL}"
-
-      - name: Write smoke summary
-        if: always()
-        run: |
-          {
-            echo "## Smoke test summary"
-            echo
-            echo "| Item | Value |"
-            echo "| --- | --- |"
-            echo "| base url | \`${SMOKE_BASE_URL}\` |"
-            echo "| auth mode | $([[ \"${REQUIRE_AUTH_SMOKE}\" == \"true\" ]] && echo authenticated || echo anonymous) |"
-          } >> "${GITHUB_STEP_SUMMARY}"

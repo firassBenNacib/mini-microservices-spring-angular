@@ -13,9 +13,6 @@ concurrency:
   group: scorecard-${{ github.ref || github.run_id }}
   cancel-in-progress: false
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   analysis:
     runs-on: ubuntu-latest
@@ -25,13 +22,18 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Run OSSF Scorecard
-        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        uses: ossf/scorecard-action@f49aabe0b5af0936a0987cfb85d86b75731b0186 # v2.4.1
         with:
           results_file: scorecard-results.json
           results_format: json
@@ -42,13 +44,3 @@ jobs:
         with:
           name: scorecard-results
           path: scorecard-results.json
-
-      - name: Write Scorecard summary
-        run: |
-          {
-            echo "## OSSF Scorecard summary"
-            echo
-            echo "- result artifact: \`scorecard-results.json\`"
-            echo "- upload artifact: \`scorecard-results\`"
-            echo "- publish to GitHub code scanning: disabled"
-          } >> "${GITHUB_STEP_SUMMARY}"
