@@ -183,26 +183,6 @@ jobs:
       - image-security
     runs-on: ubuntu-latest
     steps:
-      - name: Write Container Security summary
-        env:
-          CHANGES: ${{ needs.changes.result }}
-          IMAGE_SECURITY: ${{ needs.image-security.result }}
-          RUN_IMAGES: ${{ needs.changes.outputs.run_images }}
-          IMAGE_MATRIX: ${{ needs.changes.outputs.image_matrix }}
-        run: |
-          {
-            echo "## Container Security summary"
-            echo
-            echo "| Item | Value |"
-            echo "| --- | --- |"
-            echo "| changes | ${CHANGES} |"
-            echo "| image-security | ${IMAGE_SECURITY} |"
-            echo "| run_images | ${RUN_IMAGES} |"
-            echo "| matrix | \`${IMAGE_MATRIX}\` |"
-            echo
-            echo "Grype reports and SBOMs are uploaded as workflow artifacts."
-          } >> "${GITHUB_STEP_SUMMARY}"
-
       - name: Check upstream job results
         run: |
           if [[ "${{ needs.changes.result }}" != "success" ]]; then
