@@ -189,17 +189,18 @@ The repo uses a small set of production-oriented workflows under [`.github/workf
 - `codeql.yml`: SAST for Java, JavaScript/TypeScript, and Python
 - `security-baseline.yml`: gitleaks and Trivy secret/config scanning
 - `container-security.yml`: SBOM generation plus Grype image scanning
-- `dast.yml`: manual OWASP ZAP baseline scan against a deployed target
+- `dast.yml`: manual live-target DAST with OWASP ZAP and optional Nuclei
 - `smoke-tests.yml`: manual shallow smoke tests against a deployed application
 - `scorecard.yml`: OSSF Scorecard
-- `dockerhub-publish.yml`: publish and keylessly sign release-tagged images in DockerHub
-- `ecr-publish.yml`: publish and keylessly sign release-tagged images in ECR
-- `frontend-s3-deploy.yml`: build the frontend and deploy it to object storage plus optional CDN invalidation
+- `dockerhub-publish.yml`: publish, attest, and keylessly sign release-tagged images in DockerHub
+- `ecr-publish.yml`: publish, attest, and keylessly sign release-tagged images in ECR
+- `frontend-s3-deploy.yml`: build the frontend, deploy it to object storage, and run release smoke checks when `SMOKE_BASE_URL` is configured
 
 Normal release behavior is tag-driven:
 
 - push a `v*` tag to trigger image publish and frontend deploy workflows
 - use `workflow_dispatch` for live-environment workflows and controlled reruns or manual backfills
+- keep live deploy, DAST, and smoke workflows behind a GitHub `production` environment with required reviewers or wait timers
 
 ## GitHub Actions Configuration
 
@@ -222,6 +223,8 @@ Use GitHub **Secrets** only for sensitive values:
 - `SMOKE_AUTH_PASSWORD` (optional)
 
 The deploy and publish workflows use GitHub OIDC for cloud authentication, so long-lived cloud access keys are not required.
+
+For live deploy controls, create a GitHub environment named `production` and attach the protection rules you want there, for example required reviewers, deployment branch restrictions, and wait timers. The live deploy, DAST, and smoke workflows are wired to use that environment.
 
 ## Public vs Local Files
 

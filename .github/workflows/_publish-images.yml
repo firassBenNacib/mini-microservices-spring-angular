@@ -44,6 +44,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  attestations: write
 
 concurrency:
   group: publish-${{ inputs.registry_provider }}-${{ github.ref_name }}
@@ -166,6 +167,33 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
           cache-to: type=gha,mode=max,scope=publish-${{ matrix.service_name }}
+
+      - name: Generate release SBOM
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        with:
+          image: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
+          format: spdx-json
+          output-file: release-sbom-${{ matrix.service_name }}.spdx.json
+          upload-artifact: "false"
+
+      - name: Upload release SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-sbom-${{ matrix.service_name }}-${{ inputs.registry_provider }}
+          path: release-sbom-${{ matrix.service_name }}.spdx.json
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@10334b5f1e684784025c3fc0a277c88c19089275
+        with:
+          subject-name: ${{ steps.tags.outputs.base_ref }}
+          subject-digest: ${{ steps.build_and_push.outputs.digest }}
+
+      - name: Attest SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-name: ${{ steps.tags.outputs.base_ref }}
+          subject-digest: ${{ steps.build_and_push.outputs.digest }}
+          sbom-path: release-sbom-${{ matrix.service_name }}.spdx.json
 
       - name: Install Cosign
         if: inputs.sign_images

@@ -7,9 +7,15 @@ on:
         description: Optional override for the scan target URL
         required: false
         type: string
+      enable_nuclei:
+        description: Run Nuclei alongside ZAP
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: dast-${{ github.ref || github.run_id }}
@@ -20,9 +26,12 @@ defaults:
     shell: bash
 
 jobs:
-  zap-baseline:
+  validate-target:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
+    outputs:
+      target_url: ${{ steps.validate.outputs.target_url }}
+      enable_nuclei: ${{ steps.validate.outputs.enable_nuclei }}
     env:
       DAST_TARGET_URL: ${{ inputs.target_url != '' && inputs.target_url || vars.DAST_TARGET_URL }}
     steps:
@@ -31,22 +40,71 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          persist-credentials: false
-
       - name: Validate DAST target
+        id: validate
         run: |
           test -n "${DAST_TARGET_URL}" || {
             echo "::error::Set repository variable DAST_TARGET_URL or provide workflow_dispatch input target_url."
             exit 1
           }
+          echo "target_url=${DAST_TARGET_URL}" >> "${GITHUB_OUTPUT}"
+          echo "enable_nuclei=${{ inputs.enable_nuclei }}" >> "${GITHUB_OUTPUT}"
+
+  zap-baseline:
+    needs: validate-target
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
 
       - name: Run OWASP ZAP baseline
         uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
         with:
-          target: ${{ env.DAST_TARGET_URL }}
+          target: ${{ needs.validate-target.outputs.target_url }}
           allow_issue_writing: false
           fail_action: true
           cmd_options: "-a"
+
+  nuclei:
+    if: ${{ needs.validate-target.outputs.enable_nuclei == 'true' }}
+    needs: validate-target
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
+      - name: Run Nuclei
+        uses: projectdiscovery/nuclei-action@32a91c0da7be14c07b0ade6c14fa0f6e78d97c9c # v3.1.0
+        with:
+          version: v3.7.1
+          args: >-
+            -u ${{ needs.validate-target.outputs.target_url }}
+            -severity high,critical
+            -rate-limit 10
+            -sarif-export nuclei.sarif
+
+      - name: Upload Nuclei SARIF
+        if: always() && hashFiles('nuclei.sarif') != ''
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        with:
+          sarif_file: nuclei.sarif
+          category: nuclei
+
+      - name: Fail if Nuclei found issues
+        if: always() && hashFiles('nuclei.sarif') != ''
+        run: |
+          findings_count="$(jq '[.runs[]?.results[]?] | length' nuclei.sarif)"
+          if [[ "${findings_count}" -gt 0 ]]; then
+            echo "::error::Nuclei detected ${findings_count} finding(s)."
+            exit 1
+          fi
