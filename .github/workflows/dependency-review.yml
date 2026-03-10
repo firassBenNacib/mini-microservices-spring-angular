@@ -29,17 +29,20 @@ jobs:
       - name: Dependency vulnerability scan
         id: trivy_vuln
         continue-on-error: true
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # 0.24.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          hide-progress: true
-          exit-code: "1"
-          format: sarif
-          output: trivy-dependencies.sarif
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.58.1 \
+            fs \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --no-progress \
+            --exit-code 1 \
+            --format sarif \
+            --output trivy-dependencies.sarif \
+            .
 
       - name: Upload dependency scan SARIF
         if: always() && hashFiles('trivy-dependencies.sarif') != ''
