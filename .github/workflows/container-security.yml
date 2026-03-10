@@ -2,25 +2,9 @@ name: Container Security
 
 on:
   pull_request:
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/container-security.yml"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
   push:
     branches:
       - main
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/container-security.yml"
-      - "backend/**"
-      - "frontend/**"
-      - "gateway/**"
-      - "scripts/**"
-      - "docker-compose*.yml"
   workflow_dispatch:
   schedule:
     - cron: "30 3 * * 1"
