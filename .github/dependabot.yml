@@ -1,8 +1,8 @@
 version: 2
-open-pull-requests-limit: 10
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
@@ -13,6 +13,7 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/auth-service"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
@@ -22,6 +23,7 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/api-service"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
@@ -31,6 +33,7 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/audit-service"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
@@ -40,6 +43,7 @@ updates:
 
   - package-ecosystem: "maven"
     directory: "/backend/mailer-service"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
@@ -49,6 +53,7 @@ updates:
 
   - package-ecosystem: "pip"
     directory: "/backend/notification-service"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
@@ -58,6 +63,7 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/frontend"
+    open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
     labels:
