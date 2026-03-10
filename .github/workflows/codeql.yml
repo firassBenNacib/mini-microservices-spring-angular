@@ -21,6 +21,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -29,11 +32,6 @@ jobs:
       run_codeql: ${{ steps.filter.outputs.run_codeql }}
       codeql_matrix: ${{ steps.filter.outputs.codeql_matrix }}
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -59,9 +57,19 @@ jobs:
           base = os.environ.get("BASE_SHA", "")
           head = os.environ["GITHUB_SHA"]
 
-          if event == "pull_request":
+          def commit_exists(ref):
+            if not ref:
+              return False
+            return subprocess.run(
+              ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+              check=False,
+            ).returncode == 0
+
+          if event == "pull_request" and commit_exists(base):
             start = base
-          elif before and before != ZERO:
+          elif before and before != ZERO and commit_exists(before):
             start = before
           else:
             start = ""
@@ -109,11 +117,6 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.codeql_matrix) }}
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -175,6 +178,24 @@ jobs:
       - analyze
     runs-on: ubuntu-latest
     steps:
+      - name: Write CodeQL summary
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          ANALYZE: ${{ needs.analyze.result }}
+          RUN_CODEQL: ${{ needs.changes.outputs.run_codeql }}
+          CODEQL_MATRIX: ${{ needs.changes.outputs.codeql_matrix }}
+        run: |
+          {
+            echo "## CodeQL summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| changes | ${CHANGES} |"
+            echo "| analyze | ${ANALYZE} |"
+            echo "| run_codeql | ${RUN_CODEQL} |"
+            echo "| matrix | \`${CODEQL_MATRIX}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Check upstream job results
         run: |
           if [[ "${{ needs.changes.result }}" != "success" ]]; then

@@ -54,6 +54,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -91,11 +94,6 @@ jobs:
             dockerhub_image_name: mini-spring-frontend
             ecr_repo_name: frontend
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
-        with:
-          egress-policy: audit
-
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -184,7 +182,7 @@ jobs:
           image: local/release-${{ matrix.service_name }}:${{ github.sha }}
           format: spdx-json
           output-file: release-sbom-${{ matrix.service_name }}.spdx.json
-          upload-artifact: "false"
+          upload-artifact: false
 
       - name: Upload release SBOM
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -223,3 +221,21 @@ jobs:
             exit 1
           }
           cosign sign --yes "${IMAGE_REF}"
+
+      - name: Write publish summary
+        if: always()
+        env:
+          IMAGE_DIGEST: ${{ steps.build_and_push.outputs.digest }}
+        run: |
+          {
+            echo "## Publish summary"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| service | \`${{ matrix.service_name }}\` |"
+            echo "| registry provider | \`${{ inputs.registry_provider }}\` |"
+            echo "| base ref | \`${{ steps.tags.outputs.base_ref }}\` |"
+            echo "| digest | \`${IMAGE_DIGEST}\` |"
+            echo "| sbom artifact | \`release-sbom-${{ matrix.service_name }}-${{ inputs.registry_provider }}\` |"
+            echo "| signing enabled | \`${{ inputs.sign_images }}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
