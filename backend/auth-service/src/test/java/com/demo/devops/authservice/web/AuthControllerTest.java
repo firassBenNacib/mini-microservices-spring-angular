@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -139,6 +140,36 @@ class AuthControllerTest {
     assertTrue(session.authenticated());
     assertEquals(EMAIL, session.user().email());
     assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie -> cookie.contains("refresh_token=")));
+  }
+
+  @Test
+  void refreshReturnsAnonymousWhenTheCookieIsMissing() {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    SessionResponse session = controller.refresh(request, response);
+
+    assertFalse(session.authenticated());
+    assertEquals(3, response.getHeaders("Set-Cookie").size());
+    assertTrue(response.getHeaders("Set-Cookie").stream().allMatch(cookie -> cookie.contains("Max-Age=0")));
+    verify(refreshTokenService, never()).rotateSession(any(), any(), any(), any());
+  }
+
+  @Test
+  void refreshReturnsAnonymousWhenTheUserNoLongerExists() {
+    when(userRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.empty());
+
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setCookies(
+        new jakarta.servlet.http.Cookie("refresh_token", jwtService.generateRefreshToken(EMAIL, "admin")));
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    SessionResponse session = controller.refresh(request, response);
+
+    assertFalse(session.authenticated());
+    assertEquals(3, response.getHeaders("Set-Cookie").size());
+    assertTrue(response.getHeaders("Set-Cookie").stream().allMatch(cookie -> cookie.contains("Max-Age=0")));
+    verify(refreshTokenService, never()).rotateSession(any(), any(), any(), any());
   }
 
   @Test
