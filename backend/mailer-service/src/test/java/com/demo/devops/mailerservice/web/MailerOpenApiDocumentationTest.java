@@ -12,19 +12,25 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
-    "mailer.api-key=test-mailer-key-123",
     "spring.mail.host=smtp.test.local",
     "spring.mail.username=test-mail-user",
-    "spring.mail.password=test-mail-password-123",
     "spring.mail.from=noreply@test.local"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class MailerOpenApiDocumentationTest {
   @Autowired
   private MockMvc mockMvc;
+
+  @DynamicPropertySource
+  static void registerProperties(DynamicPropertyRegistry registry) {
+    registry.add("mailer.api-key", () -> "docs-mailer-access-value");
+    registry.add("spring.mail.password", () -> "docs-mail-access-value");
+  }
 
   @Test
   void apiDocsAreServedAsValidOpenApi() throws Exception {

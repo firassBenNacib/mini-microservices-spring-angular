@@ -12,13 +12,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
     "app.jwt.current-secret=01234567890123456789012345678901",
-    "mailer.api-key=test-mailer-key-123",
-    "notify.api-key=test-notify-key-123",
-    "audit.api-key=test-audit-key-123",
     "mailer.url=http://localhost:8083/send",
     "notify.url=http://localhost:8090/notify",
     "audit.url=http://localhost:8084/audit/events"
@@ -27,6 +26,13 @@ import org.springframework.test.web.servlet.MockMvc;
 class ApiOpenApiDocumentationTest {
   @Autowired
   private MockMvc mockMvc;
+
+  @DynamicPropertySource
+  static void registerProperties(DynamicPropertyRegistry registry) {
+    registry.add("mailer.api-key", () -> "docs-mailer-access-value");
+    registry.add("notify.api-key", () -> "docs-notify-access-value");
+    registry.add("audit.api-key", () -> "docs-audit-access-value");
+  }
 
   @Test
   void apiDocsAreServedAsValidOpenApi() throws Exception {

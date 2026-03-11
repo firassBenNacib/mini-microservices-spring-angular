@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
@@ -20,15 +22,19 @@ import org.springframework.test.web.servlet.MockMvc;
     "spring.datasource.url=jdbc:h2:mem:authdocs;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.username=sa",
-    "spring.datasource.password=test-db-secret-123",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "audit.api-key=test-audit-key-123",
     "audit.url=http://localhost:8084/audit/events"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class AuthOpenApiDocumentationTest {
   @Autowired
   private MockMvc mockMvc;
+
+  @DynamicPropertySource
+  static void registerProperties(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.password", () -> "docs-auth-db-access");
+    registry.add("audit.api-key", () -> "docs-audit-access-value");
+  }
 
   @Test
   void apiDocsAreServedAsValidOpenApi() throws Exception {
