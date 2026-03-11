@@ -21,7 +21,7 @@ export interface DashboardStatusResponse {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   getHealth() {
     return this.http.get<{ status: string }>(`${environment.apiUrl}/health`);

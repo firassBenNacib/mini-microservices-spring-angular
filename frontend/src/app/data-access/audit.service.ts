@@ -13,7 +13,7 @@ export interface AuditEvent {
 
 @Injectable({ providedIn: 'root' })
 export class AuditService {
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   getRecent(limit = 10) {
     return this.http.get<AuditEvent[]>(

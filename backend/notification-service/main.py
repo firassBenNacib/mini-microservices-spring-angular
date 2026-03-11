@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
+from typing import Annotated
+
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
@@ -214,8 +216,17 @@ async def send_twilio_sms(to: str, body: str) -> str:
   return sid
 
 
-@app.post("/notify")
-async def notify(request: NotificationRequest, x_notify_key: str | None = Header(default=None)) -> dict[str, bool]:
+@app.post(
+  "/notify",
+  responses={
+    401: {"description": "Invalid notify key"},
+    502: {"description": "Notification provider error"},
+  },
+)
+async def notify(
+  request: NotificationRequest,
+  x_notify_key: Annotated[str | None, Header()] = None,
+) -> dict[str, bool]:
   if x_notify_key != NOTIFY_API_KEY:
     raise HTTPException(status_code=401, detail="invalid notify key")
 
@@ -234,10 +245,16 @@ async def notify(request: NotificationRequest, x_notify_key: str | None = Header
   return {"ok": True}
 
 
-@app.post("/twilio/status")
+@app.post(
+  "/twilio/status",
+  responses={
+    401: {"description": "Missing or invalid Twilio signature"},
+    404: {"description": "Callback not enabled"},
+  },
+)
 async def twilio_status_callback(
-    request: Request,
-    x_twilio_signature: str | None = Header(default=None, alias="X-Twilio-Signature"),
+  request: Request,
+  x_twilio_signature: Annotated[str | None, Header(alias="X-Twilio-Signature")] = None,
 ) -> dict[str, bool]:
   if not TWILIO_STATUS_CALLBACK_URL:
     raise HTTPException(status_code=404, detail="callback not enabled")

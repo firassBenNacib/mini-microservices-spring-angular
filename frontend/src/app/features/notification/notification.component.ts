@@ -100,8 +100,8 @@ export class NotificationComponent {
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   constructor(
-    private api: ApiService,
-    private router: Router
+    private readonly api: ApiService,
+    private readonly router: Router
   ) {}
 
   sendNotification(): void {
@@ -150,7 +150,7 @@ export class NotificationComponent {
   }
 
   get computedRecipient(): string {
-    const digits = this.notifyLocalNumber.replace(/\D/g, '');
+    const digits = this.notifyLocalNumber.replaceAll(/\D/g, '');
     return `${this.notifyCountryCode}${digits}`;
   }
 

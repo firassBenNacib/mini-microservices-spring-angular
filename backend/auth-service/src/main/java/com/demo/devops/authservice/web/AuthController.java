@@ -162,7 +162,7 @@ public class AuthController {
 
     String role = authentication.getAuthorities().stream()
         .findFirst()
-        .map((authority) -> authority.getAuthority().replaceFirst("^ROLE_", "").toLowerCase())
+        .map(authority -> authority.getAuthority().replaceFirst("^ROLE_", "").toLowerCase())
         .orElse("user");
     return new SessionResponse(
         true,

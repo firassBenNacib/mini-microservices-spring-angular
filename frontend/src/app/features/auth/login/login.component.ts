@@ -18,8 +18,8 @@ export class LoginComponent implements OnInit {
   loading = false;
 
   constructor(
-    private auth: AuthService,
-    private router: Router
+    private readonly auth: AuthService,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {

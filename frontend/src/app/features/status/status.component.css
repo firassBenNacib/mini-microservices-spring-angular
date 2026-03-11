@@ -38,18 +38,18 @@
 }
 
 .service-badge.up {
-  background: rgba(24, 121, 78, 0.14);
-  color: #18794e;
+  background: #d7f0e3;
+  color: #0f5f3b;
 }
 
 .service-badge.down {
-  background: rgba(215, 58, 73, 0.14);
-  color: #c22f2f;
+  background: #f9d7dc;
+  color: #8f1f2f;
 }
 
 .service-badge.unknown {
-  background: rgba(217, 119, 6, 0.16);
-  color: #9a5b03;
+  background: #f8e2bf;
+  color: #7a4300;
 }
 
 .service-detail {

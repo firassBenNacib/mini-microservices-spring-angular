@@ -31,6 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class ApiController {
+  private static final String API_SERVICE = "api-service";
+  private static final String UNKNOWN = "unknown";
+
   private final MailerClient mailerClient;
   private final NotificationClient notificationClient;
   private final AuditClient auditClient;
@@ -67,7 +70,7 @@ public class ApiController {
 
   @GetMapping("/message")
   public MessageResponse message() {
-    auditClient.sendEvent("MESSAGE_VIEW", currentActor(), "message viewed", "api-service");
+    auditClient.sendEvent("MESSAGE_VIEW", currentActor(), "message viewed", API_SERVICE);
     return new MessageResponse("Microservices deployed and working");
   }
 
@@ -87,10 +90,10 @@ public class ApiController {
   public StatusResponse sendTestEmail(@Valid @RequestBody MailRequest request) {
     boolean sent = mailerClient.send(request);
     if (!sent) {
-      auditClient.sendEvent("EMAIL_FAILED", currentActor(), "mailer error", "api-service");
+      auditClient.sendEvent("EMAIL_FAILED", currentActor(), "mailer error", API_SERVICE);
       throw new MailerUnavailableException();
     }
-    auditClient.sendEvent("EMAIL_SENT", currentActor(), "sent to " + request.to(), "api-service");
+    auditClient.sendEvent("EMAIL_SENT", currentActor(), "sent to " + request.to(), API_SERVICE);
     return new StatusResponse("ok");
   }
 
@@ -99,17 +102,17 @@ public class ApiController {
   public StatusResponse sendTestNotification(@Valid @RequestBody NotificationRequest request) {
     boolean sent = notificationClient.send(request);
     if (!sent) {
-      auditClient.sendEvent("NOTIFY_FAILED", currentActor(), "notification error", "api-service");
+      auditClient.sendEvent("NOTIFY_FAILED", currentActor(), "notification error", API_SERVICE);
       throw new NotificationUnavailableException();
     }
-    auditClient.sendEvent("NOTIFY_SENT", currentActor(), "sent to " + request.to(), "api-service");
+    auditClient.sendEvent("NOTIFY_SENT", currentActor(), "sent to " + request.to(), API_SERVICE);
     return new StatusResponse("ok");
   }
 
   private String currentActor() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null || authentication.getName() == null) {
-      return "unknown";
+      return UNKNOWN;
     }
     return authentication.getName();
   }
@@ -136,9 +139,9 @@ public class ApiController {
       return new ServiceStatus(key, label, "up", "ok".equalsIgnoreCase(detail) ? "" : detail);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-      return new ServiceStatus(key, label, "unknown", "unreachable or timeout");
+      return new ServiceStatus(key, label, UNKNOWN, "unreachable or timeout");
     } catch (IOException ex) {
-      return new ServiceStatus(key, label, "unknown", "unreachable or timeout");
+      return new ServiceStatus(key, label, UNKNOWN, "unreachable or timeout");
     }
   }
 

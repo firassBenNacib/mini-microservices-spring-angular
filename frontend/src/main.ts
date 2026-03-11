@@ -13,4 +13,4 @@ bootstrapApplication(AppComponent, {
     })),
     provideRouter(appRoutes)
   ]
-}).catch((err) => console.error(err));
+}).catch((err) => console.error(err)); // NOSONAR: Angular's configured browser targets do not allow top-level await here.

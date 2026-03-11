@@ -15,8 +15,8 @@ export class AuditComponent implements OnInit {
   loadingAudit = false;
 
   constructor(
-    private audit: AuditService,
-    private router: Router
+    private readonly audit: AuditService,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
