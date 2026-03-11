@@ -34,6 +34,7 @@ public class AuthController {
   private static final String AUTH_COOKIE_NAME = "auth_token";
   private static final String REFRESH_COOKIE_NAME = "refresh_token";
   private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
+  private static final String AUTH_SERVICE_SOURCE = "auth-service";
 
   private final JwtService jwtService;
   private final RefreshTokenService refreshTokenService;
@@ -83,12 +84,12 @@ public class AuthController {
       HttpServletResponse response) {
     UserAccount user = userRepository.findByEmailIgnoreCase(request.email()).orElse(null);
     if (user == null) {
-      auditClient.sendEvent("LOGIN_FAILURE", request.email(), "user not found", "auth-service");
+      auditClient.sendEvent("LOGIN_FAILURE", request.email(), "user not found", AUTH_SERVICE_SOURCE);
       throw new InvalidCredentialsException();
     }
 
     if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-      auditClient.sendEvent("LOGIN_FAILURE", request.email(), "invalid password", "auth-service");
+      auditClient.sendEvent("LOGIN_FAILURE", request.email(), "invalid password", AUTH_SERVICE_SOURCE);
       throw new InvalidCredentialsException();
     }
 
@@ -96,7 +97,7 @@ public class AuthController {
     String refreshToken = jwtService.generateRefreshToken(user.getEmail(), user.getRole());
     refreshTokenService.createSession(user.getEmail(), refreshToken, jwtService.refreshExpiresAt());
     writeSessionCookies(response, accessToken, refreshToken, resolveCsrfToken(httpRequest));
-    auditClient.sendEvent("LOGIN_SUCCESS", user.getEmail(), "login successful", "auth-service");
+    auditClient.sendEvent("LOGIN_SUCCESS", user.getEmail(), "login successful", AUTH_SERVICE_SOURCE);
     return new SessionResponse(
         true,
         jwtService.getAccessExpirationSeconds(),
