@@ -19,8 +19,8 @@ export class AppComponent {
   isLoginRoute = false;
 
   constructor(
-    private auth: AuthService,
-    private router: Router
+    private readonly auth: AuthService,
+    private readonly router: Router
   ) {
     this.isAuthed = this.auth.isAuthenticated();
     this.auth.ensureSession()

@@ -25,7 +25,7 @@ export class AuthService {
 
   readonly session$ = this.sessionSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   isAuthenticated(): boolean {
     return this.sessionSubject.value.authenticated;
@@ -43,19 +43,17 @@ export class AuthService {
   }
 
   refresh() {
-    if (!this.refreshInFlight$) {
-      this.refreshInFlight$ = this.http.post<AuthSession>(`${environment.authUrl}/refresh`, {}).pipe(
-        tap((session) => this.sessionSubject.next(session)),
-        catchError(() => {
-          this.sessionSubject.next(this.anonymousSession);
-          return of(this.anonymousSession);
-        }),
-        finalize(() => {
-          this.refreshInFlight$ = null;
-        }),
-        shareReplay(1)
-      );
-    }
+    this.refreshInFlight$ ??= this.http.post<AuthSession>(`${environment.authUrl}/refresh`, {}).pipe(
+      tap((session) => this.sessionSubject.next(session)),
+      catchError(() => {
+        this.sessionSubject.next(this.anonymousSession);
+        return of(this.anonymousSession);
+      }),
+      finalize(() => {
+        this.refreshInFlight$ = null;
+      }),
+      shareReplay(1)
+    );
 
     return this.refreshInFlight$;
   }

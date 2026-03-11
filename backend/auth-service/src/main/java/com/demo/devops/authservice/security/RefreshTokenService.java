@@ -57,11 +57,11 @@ public class RefreshTokenService {
   }
 
   private RefreshTokenSession buildRecord(String userEmail, String refreshToken, Instant expiresAt) {
-    RefreshTokenSession record = new RefreshTokenSession();
-    record.setUserEmail(userEmail);
-    record.setTokenHash(hashToken(refreshToken));
-    record.setExpiresAt(expiresAt);
-    return record;
+    RefreshTokenSession session = new RefreshTokenSession();
+    session.setUserEmail(userEmail);
+    session.setTokenHash(hashToken(refreshToken));
+    session.setExpiresAt(expiresAt);
+    return session;
   }
 
   private String hashToken(String token) {

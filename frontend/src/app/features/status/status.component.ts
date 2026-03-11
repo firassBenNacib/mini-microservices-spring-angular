@@ -38,7 +38,7 @@ export class StatusComponent implements OnInit, OnDestroy {
     this.startDashboardPolling();
   };
 
-  constructor(private api: ApiService) {}
+  constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
     this.checkStatus();

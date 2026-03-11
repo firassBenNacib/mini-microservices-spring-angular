@@ -5,12 +5,20 @@ import { AppComponent } from './app/app.component';
 import { appRoutes } from './app/app.routes';
 import { authInterceptor } from './app/core/interceptors/auth.interceptor';
 
-bootstrapApplication(AppComponent, {
-  providers: [
-    provideHttpClient(withInterceptors([authInterceptor]), withXsrfConfiguration({
-      cookieName: 'XSRF-TOKEN',
-      headerName: 'X-XSRF-TOKEN'
-    })),
-    provideRouter(appRoutes)
-  ]
-}).catch((err) => console.error(err));
+async function bootstrap(): Promise<void> {
+  try {
+    await bootstrapApplication(AppComponent, {
+      providers: [
+        provideHttpClient(withInterceptors([authInterceptor]), withXsrfConfiguration({
+          cookieName: 'XSRF-TOKEN',
+          headerName: 'X-XSRF-TOKEN'
+        })),
+        provideRouter(appRoutes)
+      ]
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+bootstrap();

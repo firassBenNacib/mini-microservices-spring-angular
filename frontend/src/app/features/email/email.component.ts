@@ -19,8 +19,8 @@ export class EmailComponent {
   loading = false;
 
   constructor(
-    private api: ApiService,
-    private router: Router
+    private readonly api: ApiService,
+    private readonly router: Router
   ) {}
 
   sendEmail(): void {

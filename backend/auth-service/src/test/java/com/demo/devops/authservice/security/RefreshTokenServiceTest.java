@@ -35,18 +35,18 @@ class RefreshTokenServiceTest {
   @Test
   void createSessionRevokesExistingTokensAndStoresTheHashedRefreshToken() {
     Instant expiresAt = Instant.parse("2026-03-18T00:00:00Z");
-    ArgumentCaptor<RefreshTokenSession> recordCaptor = ArgumentCaptor.forClass(RefreshTokenSession.class);
+    ArgumentCaptor<RefreshTokenSession> sessionCaptor = ArgumentCaptor.forClass(RefreshTokenSession.class);
 
     refreshTokenService.createSession("user@example.com", "refresh-token", expiresAt);
 
     verify(refreshTokenRepository).revokeActiveByUserEmail(eq("user@example.com"), any(Instant.class));
-    verify(refreshTokenRepository).save(recordCaptor.capture());
+    verify(refreshTokenRepository).save(sessionCaptor.capture());
 
-    RefreshTokenSession record = recordCaptor.getValue();
-    assertEquals("user@example.com", record.getUserEmail());
-    assertEquals(expiresAt, record.getExpiresAt());
-    assertEquals(hash("refresh-token"), record.getTokenHash());
-    assertEquals(null, record.getRevokedAt());
+    RefreshTokenSession session = sessionCaptor.getValue();
+    assertEquals("user@example.com", session.getUserEmail());
+    assertEquals(expiresAt, session.getExpiresAt());
+    assertEquals(hash("refresh-token"), session.getTokenHash());
+    assertEquals(null, session.getRevokedAt());
   }
 
   @Test
@@ -79,7 +79,7 @@ class RefreshTokenServiceTest {
             any(Instant.class)))
         .thenReturn(Optional.of(current));
 
-    ArgumentCaptor<RefreshTokenSession> recordCaptor = ArgumentCaptor.forClass(RefreshTokenSession.class);
+    ArgumentCaptor<RefreshTokenSession> sessionCaptor = ArgumentCaptor.forClass(RefreshTokenSession.class);
 
     boolean rotated = refreshTokenService.rotateSession(
         "user@example.com",
@@ -88,10 +88,10 @@ class RefreshTokenServiceTest {
         Instant.parse("2026-03-18T00:00:00Z"));
 
     assertTrue(rotated);
-    verify(refreshTokenRepository, Mockito.times(2)).save(recordCaptor.capture());
-    assertNotNull(recordCaptor.getAllValues().get(0).getRevokedAt());
-    assertEquals("user@example.com", recordCaptor.getAllValues().get(1).getUserEmail());
-    assertEquals(hash("next-token"), recordCaptor.getAllValues().get(1).getTokenHash());
+    verify(refreshTokenRepository, Mockito.times(2)).save(sessionCaptor.capture());
+    assertNotNull(sessionCaptor.getAllValues().get(0).getRevokedAt());
+    assertEquals("user@example.com", sessionCaptor.getAllValues().get(1).getUserEmail());
+    assertEquals(hash("next-token"), sessionCaptor.getAllValues().get(1).getTokenHash());
   }
 
   @Test
