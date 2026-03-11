@@ -88,7 +88,7 @@ ps:
 
 .PHONY: logs
 logs:
-	$(COMPOSE_BASE) logs -f gateway auth-service api-service
+	$(COMPOSE_BASE) logs -f gateway auth-service api-service || test $$? -eq 130
 
 .PHONY: compose-validate
 compose-validate:
