@@ -154,7 +154,8 @@ def compute_twilio_signature(url: str, params: list[tuple[str, str]], auth_token
   base = url
   for key, value in sorted(params, key=lambda item: item[0]):
     base += f"{key}{value}"
-  digest = hmac.new(auth_token.encode("utf-8"), base.encode("utf-8"), hashlib.sha1).digest()
+  signature_algorithm = hashlib.sha1  # NOSONAR: Twilio request signing is defined as HMAC-SHA1.
+  digest = hmac.new(auth_token.encode("utf-8"), base.encode("utf-8"), signature_algorithm).digest()
   return base64.b64encode(digest).decode("utf-8")
 
 
