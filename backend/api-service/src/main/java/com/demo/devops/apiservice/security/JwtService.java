@@ -5,6 +5,7 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,28 +25,27 @@ public class JwtService {
   }
 
   public Claims parseAccessToken(String token) {
-    Claims claims = tryParse(token, currentSecretKey);
-    if (claims == null && previousSecretKey != null) {
+    Optional<Claims> claims = tryParse(token, currentSecretKey);
+    if (claims.isEmpty() && previousSecretKey != null) {
       claims = tryParse(token, previousSecretKey);
     }
-    if (claims == null) {
-      throw new JwtException("invalid token");
-    }
-    if (!"access".equals(claims.get("tokenType", String.class))) {
+    Claims parsedClaims = claims.orElseThrow(() -> new JwtException("invalid token"));
+    if (!"access".equals(parsedClaims.get("tokenType", String.class))) {
       throw new JwtException("unexpected token type");
     }
-    return claims;
+    return parsedClaims;
   }
 
-  private Claims tryParse(String token, SecretKey key) {
+  private Optional<Claims> tryParse(String token, SecretKey key) {
     try {
-      return Jwts.parserBuilder()
-          .setSigningKey(key)
-          .build()
-          .parseClaimsJws(token)
-          .getBody();
+      return Optional.of(
+          Jwts.parserBuilder()
+              .setSigningKey(key)
+              .build()
+              .parseClaimsJws(token)
+              .getBody());
     } catch (JwtException ex) {
-      return null;
+      return Optional.empty();
     }
   }
 }
