@@ -10,3 +10,12 @@ regexes = [
   '''proxy_pass http://auth-service:8081;''',
   '''proxy_pass http://api-service:8082;''',
 ]
+
+[[allowlists]]
+description = "Ignore historical OpenAPI test false positive on test-only notify API key"
+commits = ["9c2b343b5e9f40478c58c97a0158bbd76cb7850d"]
+paths = ['''^backend/api-service/src/test/java/com/demo/devops/apiservice/web/ApiOpenApiDocumentationTest\.java$''']
+regexTarget = "match"
+regexes = [
+  '''notify\.api-key=test-notify-key-123''',
+]
