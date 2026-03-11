@@ -1,1 +1,4 @@
 9c2b343b5e9f40478c58c97a0158bbd76cb7850d:backend/api-service/src/test/java/com/demo/devops/apiservice/web/ApiOpenApiDocumentationTest.java:generic-api-key:20
+e922d0dcb246db730ade9f7e21417c9cdfafbcfa:backend/api-service/src/test/java/com/demo/devops/apiservice/security/JwtServiceTest.java:generic-api-key:18
+e922d0dcb246db730ade9f7e21417c9cdfafbcfa:backend/audit-service/src/test/java/com/demo/devops/auditservice/security/JwtServiceTest.java:generic-api-key:18
+e922d0dcb246db730ade9f7e21417c9cdfafbcfa:backend/auth-service/src/test/java/com/demo/devops/authservice/security/JwtServiceTest.java:generic-api-key:18
