@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS audit_events (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  event_type VARCHAR(255) NOT NULL,
+  actor VARCHAR(255) NULL,
+  details TEXT NULL,
+  source VARCHAR(255) NULL,
+  created_at TIMESTAMP(6) NULL
+);

@@ -28,6 +28,7 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
             .requestMatchers("/health").permitAll()
             .requestMatchers(HttpMethod.POST, "/send").permitAll()
+            .requestMatchers("/v3/api-docs/**").permitAll()
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers("/actuator/info", "/actuator/prometheus").permitAll()
             .anyRequest().denyAll());

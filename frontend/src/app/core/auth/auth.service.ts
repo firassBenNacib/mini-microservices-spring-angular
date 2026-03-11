@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, catchError, map, of, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
 import { environment } from '@environments/environment';
 
 export interface AuthSession {
@@ -21,6 +21,7 @@ export class AuthService {
   };
 
   private readonly sessionSubject = new BehaviorSubject<AuthSession>(this.anonymousSession);
+  private refreshInFlight$: Observable<AuthSession> | null = null;
 
   readonly session$ = this.sessionSubject.asObservable();
 
@@ -32,12 +33,31 @@ export class AuthService {
 
   ensureSession() {
     return this.http.get<AuthSession>(`${environment.authUrl}/session`).pipe(
+      switchMap((session) => session.authenticated ? of(session) : this.refresh()),
       tap((session) => this.sessionSubject.next(session)),
       catchError(() => {
         this.sessionSubject.next(this.anonymousSession);
         return of(this.anonymousSession);
       })
     );
+  }
+
+  refresh() {
+    if (!this.refreshInFlight$) {
+      this.refreshInFlight$ = this.http.post<AuthSession>(`${environment.authUrl}/refresh`, {}).pipe(
+        tap((session) => this.sessionSubject.next(session)),
+        catchError(() => {
+          this.sessionSubject.next(this.anonymousSession);
+          return of(this.anonymousSession);
+        }),
+        finalize(() => {
+          this.refreshInFlight$ = null;
+        }),
+        shareReplay(1)
+      );
+    }
+
+    return this.refreshInFlight$;
   }
 
   login(email: string, password: string) {

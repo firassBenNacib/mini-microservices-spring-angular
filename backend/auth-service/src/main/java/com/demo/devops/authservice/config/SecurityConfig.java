@@ -32,15 +32,16 @@ public class SecurityConfig {
             .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             .ignoringRequestMatchers(
                 new AntPathRequestMatcher("/actuator/**"),
-                AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/auth/login"),
-                AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/auth/logout")))
+                AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/auth/login")))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
             .requestMatchers("/auth/health").permitAll()
             .requestMatchers(HttpMethod.GET, "/auth/session").permitAll()
             .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+            .requestMatchers(HttpMethod.POST, "/auth/refresh").permitAll()
             .requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
+            .requestMatchers("/v3/api-docs/**").permitAll()
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers("/actuator/info", "/actuator/prometheus").permitAll()
             .anyRequest().denyAll())

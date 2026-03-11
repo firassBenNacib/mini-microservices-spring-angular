@@ -222,6 +222,42 @@ jobs:
           }
           cosign sign --yes "${IMAGE_REF}"
 
+      - name: Verify image signature
+        if: inputs.sign_images
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
+          CERTIFICATE_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/_publish-images.yml@${{ github.ref }}
+        run: |
+          set -euo pipefail
+          cosign verify \
+            --certificate-identity "${CERTIFICATE_IDENTITY}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${IMAGE_REF}" >/dev/null
+
+      - name: Verify build provenance attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          gh attestation verify "oci://${IMAGE_REF}" \
+            --repo "${{ github.repository }}" \
+            --signer-workflow "${{ github.repository }}/.github/workflows/_publish-images.yml" \
+            --source-ref "${{ github.ref }}"
+
+      - name: Verify SBOM attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          gh attestation verify "oci://${IMAGE_REF}" \
+            --repo "${{ github.repository }}" \
+            --signer-workflow "${{ github.repository }}/.github/workflows/_publish-images.yml" \
+            --source-ref "${{ github.ref }}" \
+            --predicate-type "https://spdx.dev/Document"
+
       - name: Write publish summary
         if: always()
         env:

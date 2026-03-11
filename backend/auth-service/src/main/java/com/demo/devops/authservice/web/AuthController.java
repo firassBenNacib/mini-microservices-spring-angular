@@ -7,16 +7,18 @@ import com.demo.devops.authservice.dto.SessionResponse;
 import com.demo.devops.authservice.dto.StatusResponse;
 import com.demo.devops.authservice.repository.UserRepository;
 import com.demo.devops.authservice.security.JwtService;
+import com.demo.devops.authservice.security.RefreshTokenService;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,9 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 public class AuthController {
   private static final String AUTH_COOKIE_NAME = "auth_token";
+  private static final String REFRESH_COOKIE_NAME = "refresh_token";
   private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
 
   private final JwtService jwtService;
+  private final RefreshTokenService refreshTokenService;
   private final UserRepository userRepository;
   private final AuditClient auditClient;
   private final PasswordEncoder passwordEncoder;
@@ -40,11 +44,13 @@ public class AuthController {
 
   public AuthController(
       JwtService jwtService,
+      RefreshTokenService refreshTokenService,
       UserRepository userRepository,
       AuditClient auditClient,
       PasswordEncoder passwordEncoder,
       @Value("${app.cookie.secure:true}") boolean cookieSecure) {
     this.jwtService = jwtService;
+    this.refreshTokenService = refreshTokenService;
     this.userRepository = userRepository;
     this.auditClient = auditClient;
     this.passwordEncoder = passwordEncoder;
@@ -61,7 +67,11 @@ public class AuthController {
       Authentication authentication,
       HttpServletRequest request,
       HttpServletResponse response) {
-    ensureCsrfCookie(request, response);
+    if (readCookie(request, CSRF_COOKIE_NAME) == null) {
+      addCookie(
+          response,
+          buildCookie(CSRF_COOKIE_NAME, resolveCsrfToken(request), false, jwtService.getRefreshExpirationSeconds()));
+    }
     return sessionResponse(authentication);
   }
 
@@ -71,8 +81,7 @@ public class AuthController {
       @Valid @RequestBody LoginRequest request,
       HttpServletRequest httpRequest,
       HttpServletResponse response) {
-    UserAccount user = userRepository.findByEmailIgnoreCase(request.email())
-        .orElse(null);
+    UserAccount user = userRepository.findByEmailIgnoreCase(request.email()).orElse(null);
     if (user == null) {
       auditClient.sendEvent("LOGIN_FAILURE", request.email(), "user not found", "auth-service");
       throw new InvalidCredentialsException();
@@ -83,18 +92,62 @@ public class AuthController {
       throw new InvalidCredentialsException();
     }
 
-    String token = jwtService.generateToken(user.getEmail(), user.getRole());
-    String csrfToken = ensureCsrfCookie(httpRequest, response);
-    writeSessionCookies(response, token, csrfToken);
+    String accessToken = jwtService.generateAccessToken(user.getEmail(), user.getRole());
+    String refreshToken = jwtService.generateRefreshToken(user.getEmail(), user.getRole());
+    refreshTokenService.createSession(user.getEmail(), refreshToken, jwtService.refreshExpiresAt());
+    writeSessionCookies(response, accessToken, refreshToken, resolveCsrfToken(httpRequest));
     auditClient.sendEvent("LOGIN_SUCCESS", user.getEmail(), "login successful", "auth-service");
     return new SessionResponse(
         true,
-        jwtService.getExpirationSeconds(),
+        jwtService.getAccessExpirationSeconds(),
         new SessionResponse.UserInfo(user.getEmail(), user.getRole()));
   }
 
+  @PostMapping("/refresh")
+  public SessionResponse refresh(HttpServletRequest request, HttpServletResponse response) {
+    String refreshToken = readCookie(request, REFRESH_COOKIE_NAME);
+    if (refreshToken == null || refreshToken.isBlank()) {
+      clearSessionCookies(response);
+      return new SessionResponse(false, jwtService.getAccessExpirationSeconds(), null);
+    }
+
+    try {
+      Claims claims = jwtService.parseRefreshToken(refreshToken);
+      UserAccount user = userRepository.findByEmailIgnoreCase(claims.getSubject()).orElse(null);
+      if (user == null) {
+        clearSessionCookies(response);
+        return new SessionResponse(false, jwtService.getAccessExpirationSeconds(), null);
+      }
+
+      String nextRefreshToken = jwtService.generateRefreshToken(user.getEmail(), user.getRole());
+      boolean rotated = refreshTokenService.rotateSession(
+          user.getEmail(),
+          refreshToken,
+          nextRefreshToken,
+          jwtService.refreshExpiresAt());
+      if (!rotated) {
+        clearSessionCookies(response);
+        return new SessionResponse(false, jwtService.getAccessExpirationSeconds(), null);
+      }
+
+      writeSessionCookies(
+          response,
+          jwtService.generateAccessToken(user.getEmail(), user.getRole()),
+          nextRefreshToken,
+          resolveCsrfToken(request));
+      return new SessionResponse(
+          true,
+          jwtService.getAccessExpirationSeconds(),
+          new SessionResponse.UserInfo(user.getEmail(), user.getRole()));
+    } catch (RuntimeException ex) {
+      clearSessionCookies(response);
+      return new SessionResponse(false, jwtService.getAccessExpirationSeconds(), null);
+    }
+  }
+
   @PostMapping("/logout")
-  public StatusResponse logout(HttpServletResponse response) {
+  public StatusResponse logout(HttpServletRequest request, HttpServletResponse response) {
+    refreshTokenService.revokeSession(readCookie(request, REFRESH_COOKIE_NAME));
     clearSessionCookies(response);
     return new StatusResponse("ok");
   }
@@ -104,7 +157,7 @@ public class AuthController {
 
   private SessionResponse sessionResponse(Authentication authentication) {
     if (authentication == null || !authentication.isAuthenticated() || authentication.getName() == null) {
-      return new SessionResponse(false, jwtService.getExpirationSeconds(), null);
+      return new SessionResponse(false, jwtService.getAccessExpirationSeconds(), null);
     }
 
     String role = authentication.getAuthorities().stream()
@@ -113,53 +166,32 @@ public class AuthController {
         .orElse("user");
     return new SessionResponse(
         true,
-        jwtService.getExpirationSeconds(),
+        jwtService.getAccessExpirationSeconds(),
         new SessionResponse.UserInfo(authentication.getName(), role));
   }
 
-  private String ensureCsrfCookie(HttpServletRequest request, HttpServletResponse response) {
+  private String resolveCsrfToken(HttpServletRequest request) {
     String existing = readCookie(request, CSRF_COOKIE_NAME);
     if (existing != null && !existing.isBlank()) {
       return existing;
     }
-
-    String csrfToken = UUID.randomUUID().toString();
-    response.addHeader(
-        HttpHeaders.SET_COOKIE,
-        buildCookie(CSRF_COOKIE_NAME, csrfToken, false, jwtService.getExpirationSeconds()).toString());
-    return csrfToken;
+    return UUID.randomUUID().toString();
   }
 
-  private void writeSessionCookies(HttpServletResponse response, String token, String csrfToken) {
-    response.addHeader(
-        HttpHeaders.SET_COOKIE,
-        buildCookie(AUTH_COOKIE_NAME, token, true, jwtService.getExpirationSeconds()).toString());
-    response.addHeader(
-        HttpHeaders.SET_COOKIE,
-        buildCookie(CSRF_COOKIE_NAME, csrfToken, false, jwtService.getExpirationSeconds()).toString());
+  private void writeSessionCookies(
+      HttpServletResponse response,
+      String accessToken,
+      String refreshToken,
+      String csrfToken) {
+    addCookie(response, buildCookie(AUTH_COOKIE_NAME, accessToken, true, jwtService.getAccessExpirationSeconds()));
+    addCookie(response, buildCookie(REFRESH_COOKIE_NAME, refreshToken, true, jwtService.getRefreshExpirationSeconds()));
+    addCookie(response, buildCookie(CSRF_COOKIE_NAME, csrfToken, false, jwtService.getRefreshExpirationSeconds()));
   }
 
   private void clearSessionCookies(HttpServletResponse response) {
-    response.addHeader(
-        HttpHeaders.SET_COOKIE,
-        ResponseCookie.from(AUTH_COOKIE_NAME, "")
-            .httpOnly(true)
-            .secure(cookieSecure)
-            .sameSite("Lax")
-            .path("/")
-            .maxAge(0)
-            .build()
-            .toString());
-    response.addHeader(
-        HttpHeaders.SET_COOKIE,
-        ResponseCookie.from(CSRF_COOKIE_NAME, "")
-            .httpOnly(false)
-            .secure(cookieSecure)
-            .sameSite("Lax")
-            .path("/")
-            .maxAge(0)
-            .build()
-            .toString());
+    addCookie(response, clearCookie(AUTH_COOKIE_NAME, true));
+    addCookie(response, clearCookie(REFRESH_COOKIE_NAME, true));
+    addCookie(response, clearCookie(CSRF_COOKIE_NAME, false));
   }
 
   private ResponseCookie buildCookie(String name, String value, boolean httpOnly, long maxAgeSeconds) {
@@ -172,6 +204,20 @@ public class AuthController {
         .path("/")
         .maxAge(maxAgeSeconds)
         .build();
+  }
+
+  private ResponseCookie clearCookie(String name, boolean httpOnly) {
+    return ResponseCookie.from(name, "")
+        .httpOnly(httpOnly)
+        .secure(cookieSecure)
+        .sameSite("Lax")
+        .path("/")
+        .maxAge(0)
+        .build();
+  }
+
+  private void addCookie(HttpServletResponse response, ResponseCookie cookie) {
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
   }
 
   private String readCookie(HttpServletRequest request, String name) {
