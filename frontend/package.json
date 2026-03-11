@@ -5,7 +5,8 @@
   "scripts": {
     "start": "ng serve",
     "build": "ng build",
-    "test": "jest --runInBand --passWithNoTests=false"
+    "test": "jest --runInBand --passWithNoTests=false",
+    "test:coverage": "jest --runInBand --passWithNoTests=false --coverage --coverageReporters=text --coverageReporters=json-summary && node scripts/check-coverage.cjs coverage/coverage-summary.json 15 55 35 15"
   },
   "engines": {
     "node": ">=20.19.0",

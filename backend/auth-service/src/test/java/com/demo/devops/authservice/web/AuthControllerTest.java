@@ -16,6 +16,7 @@ import com.demo.devops.authservice.dto.LoginRequest;
 import com.demo.devops.authservice.dto.SessionResponse;
 import com.demo.devops.authservice.repository.UserRepository;
 import com.demo.devops.authservice.security.JwtService;
+import com.demo.devops.authservice.security.RefreshTokenService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,20 +28,26 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 class AuthControllerTest {
   private static final String EMAIL = "user@example.com";
+  private static final String SECRET = "01234567890123456789012345678901";
 
   private UserRepository userRepository;
+  private RefreshTokenService refreshTokenService;
   private AuditClient auditClient;
   private PasswordEncoder passwordEncoder;
   private AuthController controller;
+  private JwtService jwtService;
 
   @BeforeEach
   void setUp() {
     userRepository = Mockito.mock(UserRepository.class);
+    refreshTokenService = Mockito.mock(RefreshTokenService.class);
     auditClient = Mockito.mock(AuditClient.class);
     passwordEncoder = Mockito.mock(PasswordEncoder.class);
+    jwtService = new JwtService(SECRET, 3600);
     controller =
         new AuthController(
-            new JwtService("01234567890123456789012345678901", 3600),
+            jwtService,
+            refreshTokenService,
             userRepository,
             auditClient,
             passwordEncoder,
@@ -83,9 +90,11 @@ class AuthControllerTest {
     List<String> cookies = response.getHeaders("Set-Cookie");
     assertEquals(3, cookies.size());
     assertTrue(cookies.stream().anyMatch(cookie -> cookie.contains("auth_token=")));
-    assertEquals(2, cookies.stream().filter(cookie -> cookie.contains("XSRF-TOKEN=")).count());
+    assertTrue(cookies.stream().anyMatch(cookie -> cookie.contains("refresh_token=")));
+    assertEquals(1, cookies.stream().filter(cookie -> cookie.contains("XSRF-TOKEN=")).count());
 
     verify(auditClient).sendEvent("LOGIN_SUCCESS", EMAIL, "login successful", "auth-service");
+    verify(refreshTokenService).createSession(eq(EMAIL), Mockito.anyString(), Mockito.any());
   }
 
   @Test
@@ -108,5 +117,40 @@ class AuthControllerTest {
     verify(auditClient).sendEvent("LOGIN_FAILURE", EMAIL, "invalid password", "auth-service");
     verify(auditClient, never())
         .sendEvent(eq("LOGIN_SUCCESS"), eq(EMAIL), eq("login successful"), eq("auth-service"));
+  }
+
+  @Test
+  void refreshRotatesSessionWhenRefreshTokenIsValid() {
+    UserAccount user = new UserAccount();
+    user.setEmail(EMAIL);
+    user.setRole("admin");
+    when(userRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(user));
+    when(refreshTokenService.rotateSession(eq(EMAIL), Mockito.anyString(), Mockito.anyString(), Mockito.any()))
+        .thenReturn(true);
+
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setCookies(
+        new jakarta.servlet.http.Cookie("refresh_token", jwtService.generateRefreshToken(EMAIL, "admin")),
+        new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token"));
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    SessionResponse session = controller.refresh(request, response);
+
+    assertTrue(session.authenticated());
+    assertEquals(EMAIL, session.user().email());
+    assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie -> cookie.contains("refresh_token=")));
+  }
+
+  @Test
+  void logoutClearsCookiesAndRevokesRefreshToken() {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setCookies(new jakarta.servlet.http.Cookie("refresh_token", "refresh-cookie"));
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    controller.logout(request, response);
+
+    verify(refreshTokenService).revokeSession("refresh-cookie");
+    assertEquals(3, response.getHeaders("Set-Cookie").size());
+    assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie -> cookie.contains("Max-Age=0")));
   }
 }

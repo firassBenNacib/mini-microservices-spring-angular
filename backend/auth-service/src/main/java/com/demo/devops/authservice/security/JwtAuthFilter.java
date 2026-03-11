@@ -38,7 +38,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     String token = authHeader.substring(7);
     try {
-      Claims claims = jwtService.parseToken(token);
+      Claims claims = jwtService.parseAccessToken(token);
       String subject = claims.getSubject();
       String role = claims.get("role", String.class);
 

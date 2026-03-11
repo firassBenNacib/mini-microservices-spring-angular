@@ -19,17 +19,20 @@ public class StartupValidation implements InitializingBean {
       "your-smtp-password",
       "your-smtp-from@example.com");
 
-  private final String jwtSecret;
+  private final String currentJwtSecret;
+  private final String previousJwtSecret;
   private final String demoPassword;
   private final String datasourcePassword;
   private final String auditApiKey;
 
   public StartupValidation(
-      @Value("${app.jwt.secret:}") String jwtSecret,
+      @Value("${app.jwt.current-secret:${app.jwt.secret:}}") String currentJwtSecret,
+      @Value("${app.jwt.previous-secret:}") String previousJwtSecret,
       @Value("${app.demo-user.password:}") String demoPassword,
       @Value("${spring.datasource.password:}") String datasourcePassword,
       @Value("${audit.api-key:}") String auditApiKey) {
-    this.jwtSecret = jwtSecret;
+    this.currentJwtSecret = currentJwtSecret;
+    this.previousJwtSecret = previousJwtSecret;
     this.demoPassword = demoPassword;
     this.datasourcePassword = datasourcePassword;
     this.auditApiKey = auditApiKey;
@@ -37,7 +40,10 @@ public class StartupValidation implements InitializingBean {
 
   @Override
   public void afterPropertiesSet() {
-    requireSecret("APP_JWT_SECRET", jwtSecret);
+    requireSecret("APP_JWT_CURRENT_SECRET", currentJwtSecret);
+    if (previousJwtSecret != null && !previousJwtSecret.isBlank()) {
+      requireSecret("APP_JWT_PREVIOUS_SECRET", previousJwtSecret);
+    }
     requireSecret("APP_DEMO_USER_PASSWORD", demoPassword);
     requireSecret("SPRING_DATASOURCE_PASSWORD", datasourcePassword);
     requireSecret("AUDIT_API_KEY", auditApiKey);
