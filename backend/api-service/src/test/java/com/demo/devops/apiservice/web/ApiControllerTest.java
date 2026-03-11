@@ -58,6 +58,15 @@ class ApiControllerTest {
   }
 
   @Test
+  void messageUsesUnknownActorWhenAuthenticationIsMissing() {
+    SecurityContextHolder.clearContext();
+
+    controller.message();
+
+    verify(auditClient).sendEvent("MESSAGE_VIEW", "unknown", "message viewed", "api-service");
+  }
+
+  @Test
   void sendTestEmailReturnsOkWhenMailerSucceeds() {
     when(mailerClient.send(new MailRequest("user@example.com", "hello", "world"))).thenReturn(true);
 
@@ -67,6 +76,18 @@ class ApiControllerTest {
     assertEquals("ok", response.status());
     verify(auditClient)
         .sendEvent("EMAIL_SENT", "user@example.com", "sent to user@example.com", "api-service");
+  }
+
+  @Test
+  void sendTestEmailThrowsWhenMailerFails() {
+    when(mailerClient.send(new MailRequest("user@example.com", "hello", "world"))).thenReturn(false);
+
+    assertThrows(
+        RuntimeException.class,
+        () -> controller.sendTestEmail(new MailRequest("user@example.com", "hello", "world")));
+
+    verify(auditClient)
+        .sendEvent("EMAIL_FAILED", "user@example.com", "mailer error", "api-service");
   }
 
   @Test
@@ -84,5 +105,18 @@ class ApiControllerTest {
             "user@example.com",
             "notification error",
             "api-service");
+  }
+
+  @Test
+  void sendTestNotificationReturnsOkWhenNotificationClientSucceeds() {
+    when(notificationClient.send(new NotificationRequest("+12025550123", "hello", "world")))
+        .thenReturn(true);
+
+    StatusResponse response =
+        controller.sendTestNotification(new NotificationRequest("+12025550123", "hello", "world"));
+
+    assertEquals("ok", response.status());
+    verify(auditClient)
+        .sendEvent("NOTIFY_SENT", "user@example.com", "sent to +12025550123", "api-service");
   }
 }

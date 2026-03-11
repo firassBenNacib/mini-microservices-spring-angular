@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class AuthControllerTest {
@@ -66,6 +68,24 @@ class AuthControllerTest {
     assertFalse(session.authenticated());
     assertNotNull(setCookieHeader);
     assertTrue(setCookieHeader.contains("XSRF-TOKEN="));
+  }
+
+  @Test
+  void sessionReturnsAuthenticatedUserRole() {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    UsernamePasswordAuthenticationToken authentication =
+        new UsernamePasswordAuthenticationToken(
+            EMAIL,
+            "n/a",
+            List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+    SessionResponse session = controller.session(authentication, request, response);
+
+    assertTrue(session.authenticated());
+    assertNotNull(session.user());
+    assertEquals(EMAIL, session.user().email());
+    assertEquals("admin", session.user().role());
   }
 
   @Test

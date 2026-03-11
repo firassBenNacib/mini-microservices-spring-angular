@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class ApiController {
   private static final String API_SERVICE = "api-service";
-  private static final String UNKNOWN_ACTOR = "unknown";
+  private static final String UNKNOWN = "unknown";
 
   private final MailerClient mailerClient;
   private final NotificationClient notificationClient;
@@ -112,7 +112,7 @@ public class ApiController {
   private String currentActor() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null || authentication.getName() == null) {
-      return UNKNOWN_ACTOR;
+      return UNKNOWN;
     }
     return authentication.getName();
   }
@@ -139,9 +139,9 @@ public class ApiController {
       return new ServiceStatus(key, label, "up", "ok".equalsIgnoreCase(detail) ? "" : detail);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-      return new ServiceStatus(key, label, "unknown", "unreachable or timeout");
+      return new ServiceStatus(key, label, UNKNOWN, "unreachable or timeout");
     } catch (IOException ex) {
-      return new ServiceStatus(key, label, "unknown", "unreachable or timeout");
+      return new ServiceStatus(key, label, UNKNOWN, "unreachable or timeout");
     }
   }
 
