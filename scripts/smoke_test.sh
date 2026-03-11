@@ -45,41 +45,44 @@ TMP_DIR="$(mktemp -d)"
 COOKIE_JAR="${TMP_DIR}/cookies.txt"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+csrf_token() {
+  [[ -f "${COOKIE_JAR}" ]] || return 0
+  awk '$6 == "XSRF-TOKEN" {print $7}' "${COOKIE_JAR}" | tail -n 1
+}
+
 request() {
   local method="$1"
   local path="$2"
   local body="${3:-}"
   local headers_file="${TMP_DIR}/headers.txt"
   local body_file="${TMP_DIR}/body.txt"
+  local -a curl_args=(
+    -sS
+    -X "${method}"
+    -D "${headers_file}"
+    -o "${body_file}"
+    -w '%{http_code}'
+    -H 'Accept: application/json, text/html'
+    -b "${COOKIE_JAR}"
+    -c "${COOKIE_JAR}"
+  )
+  local token
   local status
 
   rm -f "${headers_file}" "${body_file}"
 
   if [[ -n "${body}" ]]; then
-    status="$(
-      curl -sS -X "${method}" \
-        -D "${headers_file}" \
-        -o "${body_file}" \
-        -w '%{http_code}' \
-        -H 'Accept: application/json, text/html' \
-        -H 'Content-Type: application/json' \
-        -b "${COOKIE_JAR}" \
-        -c "${COOKIE_JAR}" \
-        --data "${body}" \
-        "${BASE_URL}${path}"
-    )"
-  else
-    status="$(
-      curl -sS -X "${method}" \
-        -D "${headers_file}" \
-        -o "${body_file}" \
-        -w '%{http_code}' \
-        -H 'Accept: application/json, text/html' \
-        -b "${COOKIE_JAR}" \
-        -c "${COOKIE_JAR}" \
-        "${BASE_URL}${path}"
-    )"
+    curl_args+=(-H 'Content-Type: application/json' --data "${body}")
   fi
+
+  if [[ "${method}" != "GET" && "${method}" != "HEAD" && "${method}" != "OPTIONS" ]]; then
+    token="$(csrf_token || true)"
+    if [[ -n "${token}" ]]; then
+      curl_args+=(-H "X-XSRF-TOKEN: ${token}")
+    fi
+  fi
+
+  status="$(curl "${curl_args[@]}" "${BASE_URL}${path}")"
 
   printf '%s\n' "${status}" > "${TMP_DIR}/status.txt"
 }

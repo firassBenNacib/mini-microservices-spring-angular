@@ -14,14 +14,14 @@ import java.util.Date;
 import org.junit.jupiter.api.Test;
 
 class JwtServiceTest {
-  private static final String CURRENT_SECRET = "01234567890123456789012345678901";
-  private static final String PREVIOUS_SECRET = "abcdefghijklmnopqrstuvwxyz123456";
+  private static final String CURRENT_SIGNING_MATERIAL = "01234567890123456789012345678901";
+  private static final String PREVIOUS_SIGNING_MATERIAL = "abcdefghijklmnopqrstuvwxyz123456";
 
-  private final JwtService jwtService = new JwtService(CURRENT_SECRET, PREVIOUS_SECRET);
+  private final JwtService jwtService = new JwtService(CURRENT_SIGNING_MATERIAL, PREVIOUS_SIGNING_MATERIAL);
 
   @Test
   void parseAccessTokenFallsBackToThePreviousSecret() {
-    Claims claims = jwtService.parseAccessToken(signAccessToken(PREVIOUS_SECRET));
+    Claims claims = jwtService.parseAccessToken(signAccessToken(PREVIOUS_SIGNING_MATERIAL));
 
     assertEquals("user@example.com", claims.getSubject());
   }

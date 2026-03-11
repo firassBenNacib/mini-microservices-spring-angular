@@ -14,20 +14,11 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfFilter;
-import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-  private static final RequestMatcher CSRF_PROTECTION_MATCHER =
-      new AndRequestMatcher(
-          CsrfFilter.DEFAULT_CSRF_MATCHER,
-          new NegatedRequestMatcher(new AntPathRequestMatcher("/actuator/**")));
-
   private final JwtAuthFilter jwtAuthFilter;
 
   public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
@@ -38,8 +29,10 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
         .csrf(csrf -> csrf
-            .csrfTokenRepository(csrfTokenRepository())
-            .requireCsrfProtectionMatcher(CSRF_PROTECTION_MATCHER))
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            .ignoringRequestMatchers(
+                new AntPathRequestMatcher("/actuator/**"),
+                AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/auth/login")))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -65,15 +58,5 @@ public class SecurityConfig {
   @Bean
   public UserDetailsService userDetailsService() {
     return new InMemoryUserDetailsManager();
-  }
-
-  static RequestMatcher csrfProtectionMatcher() {
-    return CSRF_PROTECTION_MATCHER;
-  }
-
-  private static CookieCsrfTokenRepository csrfTokenRepository() {
-    CookieCsrfTokenRepository repository = new CookieCsrfTokenRepository();
-    repository.setCookiePath("/");
-    return repository;
   }
 }
