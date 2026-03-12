@@ -11,8 +11,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -28,11 +28,12 @@ public class SecurityConfig {
     http
         .csrf(csrf -> csrf
             .csrfTokenRepository(new CookieCsrfTokenRepository())
-            .ignoringRequestMatchers(new AntPathRequestMatcher("/audit/events", HttpMethod.POST.name())))
+            .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
             .requestMatchers("/audit/health").permitAll()
+            .requestMatchers(HttpMethod.GET, "/audit/csrf").permitAll()
             .requestMatchers(HttpMethod.POST, "/audit/events").permitAll()
             .requestMatchers(HttpMethod.GET, "/audit/recent").authenticated()
             .requestMatchers("/v3/api-docs/**").permitAll()

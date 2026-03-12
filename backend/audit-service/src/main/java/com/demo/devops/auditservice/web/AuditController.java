@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +36,11 @@ public class AuditController {
     return new StatusResponse("ok");
   }
 
+  @GetMapping("/csrf")
+  public CsrfTokenResponse csrf(CsrfToken csrfToken) {
+    return new CsrfTokenResponse(csrfToken.getToken());
+  }
+
   @PostMapping("/events")
   @ResponseStatus(HttpStatus.OK)
   public StatusResponse createEvent(
@@ -60,5 +66,7 @@ public class AuditController {
 
   @ResponseStatus(HttpStatus.UNAUTHORIZED)
   private static class InvalidKeyException extends RuntimeException {}
+
+  public record CsrfTokenResponse(String token) {}
 
 }

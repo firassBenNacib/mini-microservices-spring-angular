@@ -6,6 +6,7 @@ import com.demo.devops.mailerservice.service.MailerService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,6 +31,11 @@ public class MailerController {
     return new StatusResponse("ok");
   }
 
+  @GetMapping("/csrf")
+  public CsrfTokenResponse csrf(CsrfToken csrfToken) {
+    return new CsrfTokenResponse(csrfToken.getToken());
+  }
+
   @PostMapping("/send")
   @ResponseStatus(HttpStatus.OK)
   public StatusResponse send(
@@ -45,4 +51,6 @@ public class MailerController {
 
   @ResponseStatus(HttpStatus.UNAUTHORIZED)
   private static class InvalidKeyException extends RuntimeException {}
+
+  public record CsrfTokenResponse(String token) {}
 }
