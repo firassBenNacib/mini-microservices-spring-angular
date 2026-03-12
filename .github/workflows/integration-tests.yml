@@ -28,13 +28,3 @@ jobs:
 
       - name: Run compose-backed gateway integration checks
         run: make integration-test
-
-      - name: Write integration summary
-        if: always()
-        run: |
-          {
-            echo "## Integration test summary"
-            echo
-            echo "- command: \`make integration-test\`"
-            echo "- target: compose-backed gateway integration"
-          } >> "${GITHUB_STEP_SUMMARY}"
