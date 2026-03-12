@@ -94,6 +94,11 @@ jobs:
             dockerhub_image_name: mini-spring-frontend
             ecr_repo_name: frontend
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -155,8 +160,37 @@ jobs:
           echo "tags=${tags}" >> "${GITHUB_OUTPUT}"
           echo "base_ref=${base}" >> "${GITHUB_OUTPUT}"
 
+      - name: Check for immutable ECR tags
+        id: ecr_preflight
+        if: inputs.registry_provider == 'ecr'
+        env:
+          IMAGE_TAGS: ${{ steps.tags.outputs.tags }}
+        run: |
+          set -euo pipefail
+          repo_name="${{ inputs.image_namespace }}/${{ matrix.ecr_repo_name }}"
+          existing_tags=()
+          IFS=',' read -r -a refs <<< "${IMAGE_TAGS}"
+          for ref in "${refs[@]}"; do
+            tag="${ref##*:}"
+            if aws ecr describe-images \
+              --region "${{ inputs.cloud_provider_region }}" \
+              --repository-name "${repo_name}" \
+              --image-ids imageTag="${tag}" >/dev/null 2>&1; then
+              existing_tags+=("${tag}")
+            fi
+          done
+
+          if [[ "${#existing_tags[@]}" -gt 0 ]]; then
+            echo "skip_publish=true" >> "${GITHUB_OUTPUT}"
+            echo "existing_tags=$(IFS=,; echo "${existing_tags[*]}")" >> "${GITHUB_OUTPUT}"
+          else
+            echo "skip_publish=false" >> "${GITHUB_OUTPUT}"
+            echo "existing_tags=" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Build and push image
         id: build_and_push
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: ${{ matrix.context }}
@@ -167,6 +201,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=publish-${{ matrix.service_name }}
 
       - name: Build local release image for SBOM generation
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: ${{ matrix.context }}
@@ -177,26 +212,30 @@ jobs:
           cache-from: type=gha,scope=publish-${{ matrix.service_name }}
 
       - name: Generate release SBOM
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
         with:
           image: local/release-${{ matrix.service_name }}:${{ github.sha }}
           format: spdx-json
           output-file: release-sbom-${{ matrix.service_name }}.spdx.json
-          upload-artifact: false
+          upload-artifact: "false"
 
       - name: Upload release SBOM
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: release-sbom-${{ matrix.service_name }}-${{ inputs.registry_provider }}
           path: release-sbom-${{ matrix.service_name }}.spdx.json
 
       - name: Attest build provenance
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: actions/attest-build-provenance@10334b5f1e684784025c3fc0a277c88c19089275
         with:
           subject-name: ${{ steps.tags.outputs.base_ref }}
           subject-digest: ${{ steps.build_and_push.outputs.digest }}
 
       - name: Attest SBOM
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-name: ${{ steps.tags.outputs.base_ref }}
@@ -204,13 +243,13 @@ jobs:
           sbom-path: release-sbom-${{ matrix.service_name }}.spdx.json
 
       - name: Install Cosign
-        if: inputs.sign_images
+        if: inputs.sign_images && steps.ecr_preflight.outputs.skip_publish != 'true'
         uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v3.10.0
         with:
           cosign-release: v3.0.5
 
       - name: Sign published image
-        if: inputs.sign_images
+        if: inputs.sign_images && steps.ecr_preflight.outputs.skip_publish != 'true'
         env:
           COSIGN_EXPERIMENTAL: "1"
           IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
@@ -223,37 +262,66 @@ jobs:
           cosign sign --yes "${IMAGE_REF}"
 
       - name: Verify image signature
-        if: inputs.sign_images
+        if: inputs.sign_images && steps.ecr_preflight.outputs.skip_publish != 'true'
         env:
           COSIGN_EXPERIMENTAL: "1"
           IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
           CERTIFICATE_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/_publish-images.yml@${{ github.ref }}
         run: |
           set -euo pipefail
-          cosign verify \
-            --certificate-identity "${CERTIFICATE_IDENTITY}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "${IMAGE_REF}" >/dev/null
+          for attempt in 1 2 3 4 5 6; do
+            if cosign verify \
+              --certificate-identity "${CERTIFICATE_IDENTITY}" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "${IMAGE_REF}" >/dev/null; then
+              exit 0
+            fi
+            if [[ "${attempt}" -eq 6 ]]; then
+              echo "::error::Image signature verification did not succeed after retries."
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Verify build provenance attestation
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
         run: |
           set -euo pipefail
-          gh attestation verify "oci://${IMAGE_REF}" \
-            --repo "${{ github.repository }}" \
-            --signer-workflow "${{ github.repository }}/.github/workflows/_publish-images.yml" \
-            --source-ref "${{ github.ref }}"
+          for attempt in 1 2 3 4 5 6; do
+            if gh attestation verify "oci://${IMAGE_REF}" \
+              --repo "${{ github.repository }}" \
+              --signer-workflow "${{ github.repository }}/.github/workflows/_publish-images.yml" \
+              --source-ref "${{ github.ref }}"; then
+              exit 0
+            fi
+            if [[ "${attempt}" -eq 6 ]]; then
+              echo "::error::Build provenance attestation verification did not succeed after retries."
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Verify SBOM attestation
+        if: steps.ecr_preflight.outputs.skip_publish != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
         run: |
           set -euo pipefail
-          gh attestation verify "oci://${IMAGE_REF}" \
-            --repo "${{ github.repository }}" \
-            --signer-workflow "${{ github.repository }}/.github/workflows/_publish-images.yml" \
-            --source-ref "${{ github.ref }}" \
-            --predicate-type "https://spdx.dev/Document"
+          for attempt in 1 2 3 4 5 6; do
+            if gh attestation verify "oci://${IMAGE_REF}" \
+              --repo "${{ github.repository }}" \
+              --signer-workflow "${{ github.repository }}/.github/workflows/_publish-images.yml" \
+              --source-ref "${{ github.ref }}" \
+              --predicate-type "https://spdx.dev/Document"; then
+              exit 0
+            fi
+            if [[ "${attempt}" -eq 6 ]]; then
+              echo "::error::SBOM attestation verification did not succeed after retries."
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
