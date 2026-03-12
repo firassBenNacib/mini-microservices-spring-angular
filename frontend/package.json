@@ -38,6 +38,7 @@
   },
   "overrides": {
     "@tootallnate/once": "3.0.1",
+    "serialize-javascript": "7.0.4",
     "tar": "7.5.7",
     "glob": "13.0.1"
   }
