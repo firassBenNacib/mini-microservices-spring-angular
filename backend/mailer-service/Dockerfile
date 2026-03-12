@@ -4,10 +4,10 @@ FROM maven:3.9.9-eclipse-temurin-17@sha256:f58d59b6273e785ac0a4477f6e9b5ba1d7731
 WORKDIR /app
 
 COPY pom.xml ./
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
+RUN --mount=type=cache,id=m2-mailer-service,sharing=locked,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests package
+RUN --mount=type=cache,id=m2-mailer-service,sharing=locked,target=/root/.m2 mvn -q -DskipTests package
 
 FROM busybox:1.37.0-uclibc@sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee AS healthcheck-tools
 
