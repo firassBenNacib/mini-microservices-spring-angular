@@ -7,8 +7,6 @@ on:
         description: Optional override for the deployed application URL
         required: false
         type: string
-  schedule:
-    - cron: "0 5 * * *"
 
 permissions:
   contents: read
@@ -28,8 +26,6 @@ jobs:
   smoke-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: production
     env:
       SMOKE_BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || vars.SMOKE_BASE_URL }}
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
