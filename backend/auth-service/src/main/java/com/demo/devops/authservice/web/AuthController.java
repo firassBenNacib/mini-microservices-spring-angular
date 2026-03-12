@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -67,11 +68,16 @@ public class AuthController {
   public SessionResponse session(
       Authentication authentication,
       HttpServletRequest request,
-      HttpServletResponse response) {
+      HttpServletResponse response,
+      CsrfToken csrfToken) {
     if (readCookie(request, CSRF_COOKIE_NAME) == null) {
       addCookie(
           response,
-          buildCookie(CSRF_COOKIE_NAME, resolveCsrfToken(request), false, jwtService.getRefreshExpirationSeconds()));
+          buildCookie(
+              CSRF_COOKIE_NAME,
+              resolveCsrfToken(request, csrfToken),
+              false,
+              jwtService.getRefreshExpirationSeconds()));
     }
     return sessionResponse(authentication);
   }
@@ -81,7 +87,8 @@ public class AuthController {
   public SessionResponse login(
       @Valid @RequestBody LoginRequest request,
       HttpServletRequest httpRequest,
-      HttpServletResponse response) {
+      HttpServletResponse response,
+      CsrfToken csrfToken) {
     UserAccount user = userRepository.findByEmailIgnoreCase(request.email()).orElse(null);
     if (user == null) {
       auditClient.sendEvent("LOGIN_FAILURE", request.email(), "user not found", AUTH_SERVICE_SOURCE);
@@ -96,7 +103,7 @@ public class AuthController {
     String accessToken = jwtService.generateAccessToken(user.getEmail(), user.getRole());
     String refreshToken = jwtService.generateRefreshToken(user.getEmail(), user.getRole());
     refreshTokenService.createSession(user.getEmail(), refreshToken, jwtService.refreshExpiresAt());
-    writeSessionCookies(response, accessToken, refreshToken, resolveCsrfToken(httpRequest));
+    writeSessionCookies(response, accessToken, refreshToken, resolveCsrfToken(httpRequest, csrfToken));
     auditClient.sendEvent("LOGIN_SUCCESS", user.getEmail(), "login successful", AUTH_SERVICE_SOURCE);
     return new SessionResponse(
         true,
@@ -105,7 +112,10 @@ public class AuthController {
   }
 
   @PostMapping("/refresh")
-  public SessionResponse refresh(HttpServletRequest request, HttpServletResponse response) {
+  public SessionResponse refresh(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      CsrfToken csrfToken) {
     String refreshToken = readCookie(request, REFRESH_COOKIE_NAME);
     if (refreshToken == null || refreshToken.isBlank()) {
       clearSessionCookies(response);
@@ -135,7 +145,7 @@ public class AuthController {
           response,
           jwtService.generateAccessToken(user.getEmail(), user.getRole()),
           nextRefreshToken,
-          resolveCsrfToken(request));
+          resolveCsrfToken(request, csrfToken));
       return new SessionResponse(
           true,
           jwtService.getAccessExpirationSeconds(),
@@ -171,7 +181,10 @@ public class AuthController {
         new SessionResponse.UserInfo(authentication.getName(), role));
   }
 
-  private String resolveCsrfToken(HttpServletRequest request) {
+  private String resolveCsrfToken(HttpServletRequest request, CsrfToken csrfToken) {
+    if (csrfToken != null && csrfToken.getToken() != null && !csrfToken.getToken().isBlank()) {
+      return csrfToken.getToken();
+    }
     String existing = readCookie(request, CSRF_COOKIE_NAME);
     if (existing != null && !existing.isBlank()) {
       return existing;

@@ -19,10 +19,8 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
         .csrf(csrf -> csrf
-            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-            .ignoringRequestMatchers(
-                new AntPathRequestMatcher("/actuator/**"),
-                new AntPathRequestMatcher("/send", HttpMethod.POST.name())))
+            .csrfTokenRepository(new CookieCsrfTokenRepository())
+            .ignoringRequestMatchers(new AntPathRequestMatcher("/send", HttpMethod.POST.name())))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

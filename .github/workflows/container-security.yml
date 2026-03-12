@@ -153,37 +153,31 @@ jobs:
             --tag "local/${{ matrix.image_name }}:${{ github.sha }}" \
             "${{ matrix.context }}"
 
-      - name: Generate image SBOM
-        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
-        with:
-          image: local/${{ matrix.image_name }}:${{ github.sha }}
-          format: spdx-json
-          output-file: sbom-${{ matrix.image_name }}.spdx.json
-          upload-artifact: false
+      - name: Install Syft
+        env:
+          SYFT_VERSION: v1.28.0
+        run: |
+          curl -sSfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" \
+            | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
 
-      - name: Upload image SBOM
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: sbom-${{ matrix.image_name }}
-          path: sbom-${{ matrix.image_name }}.spdx.json
+      - name: Generate image SBOM
+        run: |
+          syft "docker:local/${{ matrix.image_name }}:${{ github.sha }}" -o spdx-json \
+            > "sbom-${{ matrix.image_name }}.spdx.json"
+
+      - name: Install Grype
+        env:
+          GRYPE_VERSION: v0.104.0
+        run: |
+          curl -sSfL "https://raw.githubusercontent.com/anchore/grype/${GRYPE_VERSION}/install.sh" \
+            | sh -s -- -b /usr/local/bin "${GRYPE_VERSION}"
 
       - name: Scan image with Grype
-        id: grype
-        uses: anchore/scan-action@7037fa011853d5a11690026fb85feee79f4c946c # v7.3.2
-        with:
-          image: local/${{ matrix.image_name }}:${{ github.sha }}
-          fail-build: true
-          only-fixed: true
-          severity-cutoff: critical
-          output-format: table
-          output-file: grype-${{ matrix.image_name }}.txt
-
-      - name: Upload Grype report
-        if: always() && hashFiles(format('grype-{0}.txt', matrix.image_name)) != ''
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: grype-${{ matrix.image_name }}
-          path: grype-${{ matrix.image_name }}.txt
+        run: |
+          grype "docker:local/${{ matrix.image_name }}:${{ github.sha }}" \
+            --only-fixed \
+            --fail-on critical \
+            -o table | tee "grype-${{ matrix.image_name }}.txt"
 
   container-security-status:
     name: Container Security
