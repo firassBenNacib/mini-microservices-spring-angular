@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,11 +43,13 @@ public class JwtService {
   }
 
   public String generateAccessToken(String email, String role) {
-    return generateToken(email, role, "access", accessExpirationSeconds);
+    return generateToken(email, role, "access", accessExpirationSeconds).compact();
   }
 
   public String generateRefreshToken(String email, String role) {
-    return generateToken(email, role, "refresh", refreshExpirationSeconds);
+    return generateToken(email, role, "refresh", refreshExpirationSeconds)
+        .setId(UUID.randomUUID().toString())
+        .compact();
   }
 
   public long getAccessExpirationSeconds() {
@@ -69,7 +72,11 @@ public class JwtService {
     return parseToken(token, "refresh");
   }
 
-  private String generateToken(String email, String role, String tokenType, long expirationSeconds) {
+  private io.jsonwebtoken.JwtBuilder generateToken(
+      String email,
+      String role,
+      String tokenType,
+      long expirationSeconds) {
     Instant now = Instant.now();
     Instant expiry = now.plusSeconds(expirationSeconds);
 
@@ -80,8 +87,7 @@ public class JwtService {
         .claim("tokenType", tokenType)
         .setIssuedAt(Date.from(now))
         .setExpiration(Date.from(expiry))
-        .signWith(currentSecretKey, SignatureAlgorithm.HS256)
-        .compact();
+        .signWith(currentSecretKey, SignatureAlgorithm.HS256);
   }
 
   private Claims parseToken(String token, String expectedType) {
