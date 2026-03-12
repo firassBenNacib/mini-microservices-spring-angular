@@ -14,8 +14,8 @@ RUN apt-get update && \
     groupadd --system app && \
     useradd --system --gid app --create-home --home-dir /home/app app
 
-COPY --chown=app:app main.py ./main.py
-RUN chmod 0444 ./main.py
+COPY main.py ./main.py
+RUN chown root:root ./main.py && chmod 0444 ./main.py
 
 USER app
 

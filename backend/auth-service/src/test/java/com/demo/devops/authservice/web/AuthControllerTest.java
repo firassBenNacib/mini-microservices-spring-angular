@@ -28,10 +28,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.csrf.DefaultCsrfToken;
 
 class AuthControllerTest {
   private static final String EMAIL = "user@example.com";
   private static final String SECRET = "01234567890123456789012345678901";
+  private static final DefaultCsrfToken CSRF_TOKEN =
+      new DefaultCsrfToken("X-XSRF-TOKEN", "_csrf", "csrf-token");
 
   private UserRepository userRepository;
   private RefreshTokenService refreshTokenService;
@@ -62,7 +65,7 @@ class AuthControllerTest {
     MockHttpServletRequest request = new MockHttpServletRequest();
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    SessionResponse session = controller.session(null, request, response);
+    SessionResponse session = controller.session(null, request, response, CSRF_TOKEN);
     String setCookieHeader = response.getHeader("Set-Cookie");
 
     assertFalse(session.authenticated());
@@ -80,7 +83,7 @@ class AuthControllerTest {
             "n/a",
             List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
-    SessionResponse session = controller.session(authentication, request, response);
+    SessionResponse session = controller.session(authentication, request, response, CSRF_TOKEN);
 
     assertTrue(session.authenticated());
     assertNotNull(session.user());
@@ -102,7 +105,7 @@ class AuthControllerTest {
     MockHttpServletResponse response = new MockHttpServletResponse();
 
     SessionResponse session =
-        controller.login(new LoginRequest(EMAIL, "correct-password"), request, response);
+        controller.login(new LoginRequest(EMAIL, "correct-password"), request, response, CSRF_TOKEN);
 
     assertTrue(session.authenticated());
     assertEquals(EMAIL, session.user().email());
@@ -133,7 +136,7 @@ class AuthControllerTest {
 
     assertThrows(
         RuntimeException.class,
-        () -> controller.login(new LoginRequest(EMAIL, "wrong-password"), request, response));
+        () -> controller.login(new LoginRequest(EMAIL, "wrong-password"), request, response, CSRF_TOKEN));
 
     verify(auditClient).sendEvent("LOGIN_FAILURE", EMAIL, "invalid password", "auth-service");
     verify(auditClient, never())
@@ -155,7 +158,7 @@ class AuthControllerTest {
         new jakarta.servlet.http.Cookie("XSRF-TOKEN", "csrf-token"));
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    SessionResponse session = controller.refresh(request, response);
+    SessionResponse session = controller.refresh(request, response, CSRF_TOKEN);
 
     assertTrue(session.authenticated());
     assertEquals(EMAIL, session.user().email());
@@ -167,7 +170,7 @@ class AuthControllerTest {
     MockHttpServletRequest request = new MockHttpServletRequest();
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    SessionResponse session = controller.refresh(request, response);
+    SessionResponse session = controller.refresh(request, response, CSRF_TOKEN);
 
     assertFalse(session.authenticated());
     assertEquals(3, response.getHeaders("Set-Cookie").size());
@@ -184,7 +187,7 @@ class AuthControllerTest {
         new jakarta.servlet.http.Cookie("refresh_token", jwtService.generateRefreshToken(EMAIL, "admin")));
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    SessionResponse session = controller.refresh(request, response);
+    SessionResponse session = controller.refresh(request, response, CSRF_TOKEN);
 
     assertFalse(session.authenticated());
     assertEquals(3, response.getHeaders("Set-Cookie").size());
