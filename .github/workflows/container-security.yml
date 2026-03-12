@@ -34,7 +34,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -55,7 +55,7 @@ jobs:
           event = os.environ["EVENT_NAME"]
           before = os.environ.get("BEFORE_SHA", "")
           base = os.environ.get("BASE_SHA", "")
-          head = os.environ["GITHUB_SHA"]
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
           def commit_exists(ref):
             if not ref:
@@ -145,7 +145,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Build local image
@@ -159,9 +159,17 @@ jobs:
         env:
           SYFT_VERSION: v1.28.0
         run: |
-          curl --retry 5 --retry-delay 2 --retry-all-errors -sSfL \
-            "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" \
-            | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
+          for attempt in 1 2 3 4 5; do
+            if curl --retry 5 --retry-delay 2 --retry-all-errors -sSfL \
+              "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" \
+              | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"; then
+              exit 0
+            fi
+            if [[ "${attempt}" -eq 5 ]]; then
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Generate image SBOM
         run: |
@@ -172,9 +180,17 @@ jobs:
         env:
           GRYPE_VERSION: v0.104.0
         run: |
-          curl --retry 5 --retry-delay 2 --retry-all-errors -sSfL \
-            "https://raw.githubusercontent.com/anchore/grype/${GRYPE_VERSION}/install.sh" \
-            | sh -s -- -b /usr/local/bin "${GRYPE_VERSION}"
+          for attempt in 1 2 3 4 5; do
+            if curl --retry 5 --retry-delay 2 --retry-all-errors -sSfL \
+              "https://raw.githubusercontent.com/anchore/grype/${GRYPE_VERSION}/install.sh" \
+              | sh -s -- -b /usr/local/bin "${GRYPE_VERSION}"; then
+              exit 0
+            fi
+            if [[ "${attempt}" -eq 5 ]]; then
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Scan image with Grype
         run: |
