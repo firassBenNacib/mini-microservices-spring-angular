@@ -2,9 +2,12 @@ package com.demo.devops.apiservice.config;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.demo.devops.apiservice.client.AuditClient;
@@ -49,16 +52,16 @@ class SecurityConfigTest {
   }
 
   @Test
-  void sendTestEmailAllowsAuthenticatedRequestsWithoutCsrfToken() throws Exception {
-    given(mailerClient.send(any())).willReturn(true);
-
+  void sendTestEmailRequiresCsrfToken() throws Exception {
     mockMvc.perform(post("/api/send-test-email")
             .with(user("demo@example.com"))
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"to":"user@example.com","subject":"hello","text":"world"}
                 """))
-        .andExpect(status().isOk());
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(mailerClient, auditClient);
   }
 
   @Test
@@ -76,16 +79,16 @@ class SecurityConfigTest {
   }
 
   @Test
-  void sendTestNotificationAllowsAuthenticatedRequestsWithoutCsrfToken() throws Exception {
-    given(notificationClient.send(any())).willReturn(true);
-
+  void sendTestNotificationRequiresCsrfToken() throws Exception {
     mockMvc.perform(post("/api/send-test-notification")
             .with(user("demo@example.com"))
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"to":"+12025550123","subject":"hello","text":"world"}
                 """))
-        .andExpect(status().isOk());
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(notificationClient, auditClient);
   }
 
   @Test
@@ -117,16 +120,17 @@ class SecurityConfigTest {
   }
 
   @Test
-  void sendTestNotificationReturnsBadGatewayWithoutCsrfTokenWhenNotificationClientFails()
+  void sendTestNotificationRejectsRequestsWithoutCsrfTokenEvenWhenNotificationClientFails()
       throws Exception {
     given(notificationClient.send(any())).willReturn(false);
 
     mockMvc.perform(post("/api/send-test-notification")
+            .with(user("demo@example.com"))
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"to":"+12025550123","subject":"hello","text":"world"}
                 """))
-        .andExpect(status().isBadGateway());
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -151,5 +155,12 @@ class SecurityConfigTest {
                 {"to":"+12025550123","subject":"hello","text":"world"}
                 """))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void sessionBootstrapDoesNotMintAnApiOwnedXsrfCookie() throws Exception {
+    mockMvc.perform(get("/api/health"))
+        .andExpect(status().isOk())
+        .andExpect(cookie().doesNotExist("XSRF-TOKEN"));
   }
 }
