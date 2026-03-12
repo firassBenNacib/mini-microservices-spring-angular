@@ -83,7 +83,7 @@ jobs:
             --format sarif \
             --output trivy-secrets.sarif \
             --exit-code 1 \
-            --no-progress \
+            --quiet \
             .
 
       - name: Upload Trivy secrets SARIF
@@ -131,7 +131,7 @@ jobs:
             --output trivy-config.sarif \
             --severity HIGH,CRITICAL \
             --exit-code 1 \
-            --no-progress \
+            --quiet \
             .
 
       - name: Upload Trivy config SARIF

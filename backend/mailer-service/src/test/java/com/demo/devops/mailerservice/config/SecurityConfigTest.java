@@ -2,6 +2,7 @@ package com.demo.devops.mailerservice.config;
 
 import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -51,13 +52,31 @@ class SecurityConfigTest {
   }
 
   @Test
-  void sendAllowsApiKeyRequestsWithoutCsrfToken() throws Exception {
+  void sendRequiresCsrfEvenWhenApiKeyHeaderIsPresent() throws Exception {
     mockMvc.perform(post("/send")
             .header("x-mailer-key", "test-mailer-access-value")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"to":"user@example.com","subject":"hello","text":"world"}
                 """))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void sendAllowsApiKeyRequestsWithCsrfToken() throws Exception {
+    mockMvc.perform(post("/send")
+            .with(csrf())
+            .header("x-mailer-key", "test-mailer-access-value")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"to":"user@example.com","subject":"hello","text":"world"}
+                """))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void csrfEndpointProvidesToken() throws Exception {
+    mockMvc.perform(get("/csrf"))
         .andExpect(status().isOk());
   }
 }

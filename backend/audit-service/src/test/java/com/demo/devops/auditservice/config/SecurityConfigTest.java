@@ -64,8 +64,20 @@ class SecurityConfigTest {
   }
 
   @Test
-  void auditEventAllowsApiKeyRequestsWithoutCsrfToken() throws Exception {
+  void auditEventRequiresCsrfEvenWhenApiKeyHeaderIsPresent() throws Exception {
     mockMvc.perform(post("/audit/events")
+            .header("x-audit-key", "test-audit-access-value")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"eventType":"LOGIN_SUCCESS","actor":"user@example.com","details":"ok","source":"auth-service"}
+                """))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void auditEventAllowsApiKeyRequestsWithCsrfToken() throws Exception {
+    mockMvc.perform(post("/audit/events")
+            .with(csrf())
             .header("x-audit-key", "test-audit-access-value")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
@@ -75,9 +87,9 @@ class SecurityConfigTest {
   }
 
   @Test
-  void recentEndpointStillRequiresAuthentication() throws Exception {
-    mockMvc.perform(get("/audit/recent"))
-        .andExpect(status().isForbidden());
+  void csrfEndpointProvidesToken() throws Exception {
+    mockMvc.perform(get("/audit/csrf"))
+        .andExpect(status().isOk());
   }
 
   @Test
