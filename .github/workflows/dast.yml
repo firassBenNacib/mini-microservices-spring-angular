@@ -57,8 +57,6 @@ jobs:
     needs: validate-target
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment:
-      name: production
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
@@ -78,8 +76,6 @@ jobs:
     needs: validate-target
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment:
-      name: production
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
