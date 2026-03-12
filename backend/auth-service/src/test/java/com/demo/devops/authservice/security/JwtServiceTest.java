@@ -1,6 +1,7 @@
 package com.demo.devops.authservice.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.jsonwebtoken.Claims;
@@ -33,6 +34,15 @@ class JwtServiceTest {
     String refreshToken = jwtService.generateRefreshToken("user@example.com", "admin");
 
     assertThrows(JwtException.class, () -> jwtService.parseAccessToken(refreshToken));
+  }
+
+  @Test
+  void generateRefreshTokenCreatesDistinctTokensForTheSameUser() {
+    String first = jwtService.generateRefreshToken("user@example.com", "admin");
+    String second = jwtService.generateRefreshToken("user@example.com", "admin");
+
+    assertNotEquals(first, second);
+    assertEquals("user@example.com", jwtService.parseRefreshToken(second).getSubject());
   }
 
   private String signToken(String secret, String tokenType) {
