@@ -36,3 +36,21 @@ jobs:
 
       - name: Run compose-backed gateway integration checks
         run: make integration-test
+
+      - name: Collect integration logs
+        if: always()
+        run: |
+          mkdir -p integration-artifacts
+          printf 'Integration workflow result: %s\n' "${{ job.status }}" \
+            > integration-artifacts/summary.txt
+          docker compose -f docker-compose.yml -f docker-compose.build.yml ps -a \
+            > integration-artifacts/compose-ps.txt || true
+          docker compose -f docker-compose.yml -f docker-compose.build.yml logs --no-color \
+            > integration-artifacts/compose-logs.txt || true
+
+      - name: Upload integration artifacts
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: integration-logs
+          path: integration-artifacts
