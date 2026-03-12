@@ -262,7 +262,7 @@ jobs:
           cosign sign --yes "${IMAGE_REF}"
 
       - name: Verify image signature
-        if: inputs.sign_images && steps.ecr_preflight.outputs.skip_publish != 'true'
+        if: inputs.sign_images && steps.ecr_preflight.outputs.skip_publish != 'true' && inputs.registry_provider == 'dockerhub'
         env:
           COSIGN_EXPERIMENTAL: "1"
           IMAGE_REF: ${{ steps.tags.outputs.base_ref }}@${{ steps.build_and_push.outputs.digest }}
