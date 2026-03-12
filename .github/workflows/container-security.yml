@@ -34,6 +34,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -144,6 +145,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Build local image
@@ -157,7 +159,8 @@ jobs:
         env:
           SYFT_VERSION: v1.28.0
         run: |
-          curl -sSfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" \
+          curl --retry 5 --retry-delay 2 --retry-all-errors -sSfL \
+            "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" \
             | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
 
       - name: Generate image SBOM
@@ -169,7 +172,8 @@ jobs:
         env:
           GRYPE_VERSION: v0.104.0
         run: |
-          curl -sSfL "https://raw.githubusercontent.com/anchore/grype/${GRYPE_VERSION}/install.sh" \
+          curl --retry 5 --retry-delay 2 --retry-all-errors -sSfL \
+            "https://raw.githubusercontent.com/anchore/grype/${GRYPE_VERSION}/install.sh" \
             | sh -s -- -b /usr/local/bin "${GRYPE_VERSION}"
 
       - name: Scan image with Grype
