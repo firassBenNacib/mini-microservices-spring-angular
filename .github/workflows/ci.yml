@@ -48,7 +48,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -203,6 +203,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
       - name: Lint GitHub Actions workflows
@@ -215,6 +216,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
       - name: Lint Dockerfiles
@@ -234,6 +236,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
       - name: Lint shell scripts
@@ -252,6 +255,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
       - name: Validate compose overlays
@@ -267,6 +271,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
       - name: Set up frontend workspace
@@ -302,14 +307,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
+      - name: Select preinstalled JDK
+        run: |
+          echo "JAVA_HOME=${JAVA_HOME_17_X64}" >> "${GITHUB_ENV}"
+          echo "${JAVA_HOME_17_X64}/bin" >> "${GITHUB_PATH}"
+          java -version
 
       - name: Derive service metadata
         id: service_meta
@@ -338,6 +343,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
 
       - name: Set up Python
@@ -373,6 +379,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Build container image
@@ -391,6 +398,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Run gateway integration checks
@@ -407,6 +415,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -453,7 +462,7 @@ jobs:
             fi
             echo "-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
             echo "-Dsonar.projectName=mini-microservices-spring-angular"
-            echo "-Dsonar.scm.revision=${GITHUB_SHA}"
+            echo "-Dsonar.scm.revision=${{ github.event.pull_request.head.sha || github.sha }}"
             if [[ "${EVENT_NAME}" == "pull_request" ]]; then
               echo "-Dsonar.pullrequest.key=${PR_NUMBER}"
               echo "-Dsonar.pullrequest.branch=${HEAD_REF}"
@@ -475,12 +484,11 @@ jobs:
         working-directory: frontend
         run: npm run test:coverage
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
+      - name: Select preinstalled JDK
+        run: |
+          echo "JAVA_HOME=${JAVA_HOME_17_X64}" >> "${GITHUB_ENV}"
+          echo "${JAVA_HOME_17_X64}/bin" >> "${GITHUB_PATH}"
+          java -version
 
       - name: Verify auth-service
         working-directory: backend/auth-service
