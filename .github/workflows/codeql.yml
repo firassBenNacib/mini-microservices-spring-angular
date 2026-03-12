@@ -56,7 +56,7 @@ jobs:
           event = os.environ["EVENT_NAME"]
           before = os.environ.get("BEFORE_SHA", "")
           base = os.environ.get("BASE_SHA", "")
-          head = os.environ["GITHUB_SHA"]
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
           def commit_exists(ref):
             if not ref:
