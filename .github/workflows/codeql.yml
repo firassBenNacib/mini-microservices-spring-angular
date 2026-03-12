@@ -32,6 +32,11 @@ jobs:
       run_codeql: ${{ steps.filter.outputs.run_codeql }}
       codeql_matrix: ${{ steps.filter.outputs.codeql_matrix }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -118,6 +123,11 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.codeql_matrix) }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@58077d3c7e43986b6b15fba718e8ea69e387dfcc # v2
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
