@@ -42,13 +42,3 @@ jobs:
         with:
           name: scorecard-results
           path: scorecard-results.json
-
-      - name: Write Scorecard summary
-        run: |
-          {
-            echo "## OSSF Scorecard summary"
-            echo
-            echo "- result artifact: \`scorecard-results.json\`"
-            echo "- upload artifact: \`scorecard-results\`"
-            echo "- publish to GitHub code scanning: disabled"
-          } >> "${GITHUB_STEP_SUMMARY}"

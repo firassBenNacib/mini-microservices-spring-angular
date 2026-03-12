@@ -80,22 +80,6 @@ jobs:
           name: advisory-${{ matrix.image_name }}
           path: advisory-${{ matrix.image_name }}.txt
 
-      - name: Write advisory summary
-        if: always()
-        env:
-          GRYPE_OUTCOME: ${{ steps.grype.outcome }}
-        run: |
-          {
-            echo "## Image advisory summary"
-            echo
-            echo "| Item | Value |"
-            echo "| --- | --- |"
-            echo "| image | \`${{ matrix.image_name }}\` |"
-            echo "| context | \`${{ matrix.context }}\` |"
-            echo "| advisory scan outcome | ${GRYPE_OUTCOME} |"
-            echo "| artifact | \`advisory-${{ matrix.image_name }}\` |"
-          } >> "${GITHUB_STEP_SUMMARY}"
-
       - name: Fail scheduled advisory if high or critical findings exist
         if: steps.grype.outcome == 'failure'
         run: |
