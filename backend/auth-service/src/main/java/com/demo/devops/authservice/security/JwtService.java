@@ -3,7 +3,6 @@ package com.demo.devops.authservice.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -48,7 +47,7 @@ public class JwtService {
 
   public String generateRefreshToken(String email, String role) {
     return generateToken(email, role, "refresh", refreshExpirationSeconds)
-        .setId(UUID.randomUUID().toString())
+        .id(UUID.randomUUID().toString())
         .compact();
   }
 
@@ -81,13 +80,15 @@ public class JwtService {
     Instant expiry = now.plusSeconds(expirationSeconds);
 
     return Jwts.builder()
-        .setHeaderParam("kid", currentKid)
-        .setSubject(email)
+        .header()
+        .keyId(currentKid)
+        .and()
+        .subject(email)
         .claim("role", role)
         .claim("tokenType", tokenType)
-        .setIssuedAt(Date.from(now))
-        .setExpiration(Date.from(expiry))
-        .signWith(currentSecretKey, SignatureAlgorithm.HS256);
+        .issuedAt(Date.from(now))
+        .expiration(Date.from(expiry))
+        .signWith(currentSecretKey);
   }
 
   private Claims parseToken(String token, String expectedType) {
@@ -108,10 +109,10 @@ public class JwtService {
     try {
       return Optional.of(
           Jwts.parser()
-              .setSigningKey(key)
+              .verifyWith(key)
               .build()
-              .parseClaimsJws(token)
-              .getBody());
+              .parseSignedClaims(token)
+              .getPayload());
     } catch (JwtException ex) {
       return Optional.empty();
     }
