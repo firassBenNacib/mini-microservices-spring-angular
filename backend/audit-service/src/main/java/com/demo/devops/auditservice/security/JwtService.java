@@ -36,14 +36,16 @@ public class JwtService {
     return parsedClaims;
   }
 
+  // JJWT 0.13 uses parser().verifyWith(...).build() for signed-claims parsing.
+  @SuppressWarnings("java:S1874")
   private Optional<Claims> tryParse(String token, SecretKey key) {
     try {
       return Optional.of(
-          Jwts.parserBuilder()
-              .setSigningKey(key)
+          Jwts.parser()
+              .verifyWith(key)
               .build()
-              .parseClaimsJws(token)
-              .getBody());
+              .parseSignedClaims(token)
+              .getPayload());
     } catch (JwtException ex) {
       return Optional.empty();
     }
