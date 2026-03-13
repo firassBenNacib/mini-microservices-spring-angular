@@ -20,7 +20,8 @@ import org.springframework.test.web.servlet.MockMvc;
     "app.jwt.current-secret=01234567890123456789012345678901",
     "mailer.url=http://localhost:8083/send",
     "notify.url=http://localhost:8090/notify",
-    "audit.url=http://localhost:8084/audit/events"
+    "audit.url=http://localhost:8084/audit/events",
+    "logging.level.org.springdoc.core.events.SpringDocAppInitializer=ERROR"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class ApiOpenApiDocumentationTest {

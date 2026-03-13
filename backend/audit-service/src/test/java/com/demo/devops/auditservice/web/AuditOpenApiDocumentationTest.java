@@ -22,8 +22,8 @@ import org.springframework.test.web.servlet.MockMvc;
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.username=sa",
     "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "spring.flyway.enabled=false"
+    "spring.flyway.enabled=false",
+    "logging.level.org.springdoc.core.events.SpringDocAppInitializer=ERROR"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class AuditOpenApiDocumentationTest {
