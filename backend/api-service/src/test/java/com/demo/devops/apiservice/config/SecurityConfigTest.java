@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,7 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
     "app.jwt.current-secret=01234567890123456789012345678901",
     "mailer.url=http://localhost:8083/send",
     "notify.url=http://localhost:8090/notify",
-    "audit.url=http://localhost:8084/audit/events"
+    "audit.url=http://localhost:8084/audit/events",
+    "logging.level.org.springdoc.core.events.SpringDocAppInitializer=ERROR"
 })
 @AutoConfigureMockMvc
 class SecurityConfigTest {
@@ -35,13 +36,13 @@ class SecurityConfigTest {
   @Autowired
   private MockMvc mockMvc;
 
-  @MockBean
+  @MockitoBean
   private MailerClient mailerClient;
 
-  @MockBean
+  @MockitoBean
   private NotificationClient notificationClient;
 
-  @MockBean
+  @MockitoBean
   private AuditClient auditClient;
 
   @DynamicPropertySource

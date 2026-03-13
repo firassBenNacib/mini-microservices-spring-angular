@@ -19,7 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(properties = {
     "spring.mail.host=smtp.test.local",
     "spring.mail.username=test-mail-user",
-    "spring.mail.from=noreply@test.local"
+    "spring.mail.from=noreply@test.local",
+    "logging.level.org.springdoc.core.events.SpringDocAppInitializer=ERROR"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class MailerOpenApiDocumentationTest {

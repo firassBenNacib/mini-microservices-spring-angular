@@ -22,8 +22,8 @@ import org.springframework.test.web.servlet.MockMvc;
     "spring.datasource.url=jdbc:h2:mem:authdocs;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.username=sa",
-    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "audit.url=http://localhost:8084/audit/events"
+    "audit.url=http://localhost:8084/audit/events",
+    "logging.level.org.springdoc.core.events.SpringDocAppInitializer=ERROR"
 })
 @AutoConfigureMockMvc(addFilters = false)
 class AuthOpenApiDocumentationTest {
