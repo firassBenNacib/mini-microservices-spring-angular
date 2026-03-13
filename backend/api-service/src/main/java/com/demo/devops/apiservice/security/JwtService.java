@@ -40,10 +40,10 @@ public class JwtService {
     try {
       return Optional.of(
           Jwts.parser()
-              .setSigningKey(key)
+              .verifyWith(key)
               .build()
-              .parseClaimsJws(token)
-              .getBody());
+              .parseSignedClaims(token)
+              .getPayload());
     } catch (JwtException ex) {
       return Optional.empty();
     }
