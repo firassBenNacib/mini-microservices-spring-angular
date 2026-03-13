@@ -107,7 +107,7 @@ public class JwtService {
   private Optional<Claims> tryParse(String token, SecretKey key) {
     try {
       return Optional.of(
-          Jwts.parserBuilder()
+          Jwts.parser()
               .setSigningKey(key)
               .build()
               .parseClaimsJws(token)

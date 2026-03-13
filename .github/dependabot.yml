@@ -20,6 +20,13 @@ updates:
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-api"
+        update-types:
+          - "version-update:semver-major"
     groups:
       auth-service-dependencies:
         patterns:
@@ -34,6 +41,13 @@ updates:
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-api"
+        update-types:
+          - "version-update:semver-major"
     groups:
       api-service-dependencies:
         patterns:
@@ -48,6 +62,13 @@ updates:
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-api"
+        update-types:
+          - "version-update:semver-major"
     groups:
       audit-service-dependencies:
         patterns:
@@ -62,6 +83,13 @@ updates:
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-api"
+        update-types:
+          - "version-update:semver-major"
     groups:
       mailer-service-dependencies:
         patterns:
