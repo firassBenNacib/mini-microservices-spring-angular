@@ -178,12 +178,14 @@ jobs:
     outputs:
       provider: ${{ steps.resolve.outputs.provider }}
       enabled: ${{ steps.resolve.outputs.enabled }}
+      available: ${{ steps.resolve.outputs.available }}
     steps:
       - name: Resolve SonarQube provider
         id: resolve
         env:
           INPUT_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.sonarqube_provider || '' }}
           VAR_PROVIDER: ${{ vars.SONARQUBE_PROVIDER || '' }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           provider="${INPUT_PROVIDER:-${VAR_PROVIDER:-disabled}}"
           case "${provider}" in
@@ -196,8 +198,14 @@ jobs:
 
           if [[ "${provider}" == "disabled" ]]; then
             echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "available=false" >> "${GITHUB_OUTPUT}"
           else
             echo "enabled=true" >> "${GITHUB_OUTPUT}"
+            if [[ -n "${SONAR_TOKEN}" ]]; then
+              echo "available=true" >> "${GITHUB_OUTPUT}"
+            else
+              echo "available=false" >> "${GITHUB_OUTPUT}"
+            fi
           fi
           echo "provider=${provider}" >> "${GITHUB_OUTPUT}"
 
@@ -466,7 +474,7 @@ jobs:
     needs:
       - changes
       - resolve-sonarqube
-    if: needs.resolve-sonarqube.outputs.enabled == 'true' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.run_integration == 'true')
+    if: needs.resolve-sonarqube.outputs.enabled == 'true' && needs.resolve-sonarqube.outputs.available == 'true' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.run_integration == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
