@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -34,11 +33,11 @@ class JwtServiceTest {
   private String signAccessToken(String secret) {
     Instant now = Instant.now();
     return Jwts.builder()
-        .setSubject("user@example.com")
+        .subject("user@example.com")
         .claim("tokenType", "access")
-        .setIssuedAt(Date.from(now))
-        .setExpiration(Date.from(now.plusSeconds(3600)))
-        .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256)
+        .issuedAt(Date.from(now))
+        .expiration(Date.from(now.plusSeconds(3600)))
+        .signWith(Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)))
         .compact();
   }
 }
