@@ -60,8 +60,10 @@ export class AuthService {
 
   login(email: string, password: string) {
     return this.http
-      .post<AuthSession>(`${environment.authUrl}/login`, { email, password })
+      .get<AuthSession>(`${environment.authUrl}/session`)
       .pipe(
+        catchError(() => of(this.anonymousSession)),
+        switchMap(() => this.http.post<AuthSession>(`${environment.authUrl}/login`, { email, password })),
         tap((session) => this.sessionSubject.next(session)),
         map(() => void 0)
       );
