@@ -6,6 +6,8 @@ A mini microservices application with Spring Boot backends, an Angular frontend,
 
 [![screencast](./demo/demo.gif)](./demo/demo.gif)
 
+![UI preview](./demo/demo_ui.png)
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
@@ -182,6 +184,10 @@ make push-ecr CLOUD_PROVIDER_REGION=eu-west-1 IMAGE_TAG=1.0.0
 ```
 
 ## CI/CD and Security Workflows
+
+SonarQube quality gate snapshot:
+
+![SonarQube report](./demo/sonarqube.png)
 
 The repo uses a small set of production-oriented workflows under [`.github/workflows/`](./.github/workflows):
 
