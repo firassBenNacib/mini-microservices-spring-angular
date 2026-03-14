@@ -33,6 +33,7 @@ describe('AuthService', () => {
   });
 
   it('login updates the in-memory session', async () => {
+    http.get.mockReturnValue(of({ authenticated: false, expiresIn: 0, user: null }));
     http.post.mockReturnValue(
       of({
         authenticated: true,
@@ -43,6 +44,7 @@ describe('AuthService', () => {
 
     await firstValueFrom(service.login('user@example.com', 'secret'));
 
+    expect(http.get).toHaveBeenCalledWith('/auth/session');
     expect(http.post).toHaveBeenCalledWith('/auth/login', {
       email: 'user@example.com',
       password: 'secret'
