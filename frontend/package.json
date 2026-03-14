@@ -32,7 +32,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-preset-angular": "^14.6.2",
-    "jsdom": "^26.1.0",
+    "jsdom": "^28.1.0",
     "ts-jest": "^29.4.6",
     "typescript": "~5.6.3"
   },
@@ -40,6 +40,9 @@
     "@tootallnate/once": "3.0.1",
     "serialize-javascript": "7.0.4",
     "tar": "7.5.11",
-    "glob": "13.0.1"
+    "glob": "13.0.1",
+    "jest-environment-jsdom": {
+      "jsdom": "^28.1.0"
+    }
   }
 }
