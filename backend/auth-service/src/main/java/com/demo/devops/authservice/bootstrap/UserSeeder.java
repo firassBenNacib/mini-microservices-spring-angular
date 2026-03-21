@@ -27,14 +27,14 @@ public class UserSeeder implements CommandLineRunner {
 
   @Override
   public void run(String... args) {
-    if (userRepository.findByEmailIgnoreCase(demoEmail).isPresent()) {
-      return;
+    UserAccount user = userRepository.findByEmailIgnoreCase(demoEmail).orElseGet(UserAccount::new);
+    user.setEmail(demoEmail);
+    user.setRole("user");
+
+    if (user.getPasswordHash() == null || !passwordEncoder.matches(demoPassword, user.getPasswordHash())) {
+      user.setPasswordHash(passwordEncoder.encode(demoPassword));
     }
 
-    UserAccount user = new UserAccount();
-    user.setEmail(demoEmail);
-    user.setPasswordHash(passwordEncoder.encode(demoPassword));
-    user.setRole("user");
     userRepository.save(user);
   }
 }
