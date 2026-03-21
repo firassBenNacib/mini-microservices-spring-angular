@@ -92,7 +92,6 @@ jobs:
 
           summary_line="$(grep -E 'FAIL-NEW:|FAIL-INPROG:' "${report_file}" | tail -n 1 || true)"
           if [[ -z "${summary_line}" ]]; then
-            echo "::notice::ZAP report did not include fail summary counters; allowing warning-only baseline run."
             exit 0
           fi
 
