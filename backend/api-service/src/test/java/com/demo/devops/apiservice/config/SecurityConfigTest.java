@@ -164,4 +164,10 @@ class SecurityConfigTest {
         .andExpect(status().isOk())
         .andExpect(cookie().doesNotExist("XSRF-TOKEN"));
   }
+
+  @Test
+  void dashboardStatusIsPublic() throws Exception {
+    mockMvc.perform(get("/api/dashboard-status"))
+        .andExpect(status().isOk());
+  }
 }
