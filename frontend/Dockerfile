@@ -25,6 +25,10 @@ COPY --from=healthcheck-tools /bin/busybox /busybox
 
 EXPOSE 8080
 
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["/busybox", "wget", "-qO-", "http://127.0.0.1:8080/"]
 

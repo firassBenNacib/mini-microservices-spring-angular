@@ -8,7 +8,10 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8080
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/* && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl --fail --silent http://127.0.0.1:8080/gateway/health >/dev/null || exit 1

@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt ./
 RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir -r requirements.txt && \
