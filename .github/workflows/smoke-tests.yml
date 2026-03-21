@@ -3,6 +3,14 @@ name: Smoke Tests
 on:
   workflow_dispatch:
     inputs:
+      deployment_environment:
+        description: GitHub environment to load vars and secrets from
+        required: false
+        default: nonprod
+        type: choice
+        options:
+          - nonprod
+          - production
       base_url:
         description: Optional override for the deployed application URL
         required: false
@@ -26,6 +34,8 @@ jobs:
   smoke-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: ${{ inputs.deployment_environment || 'nonprod' }}
     env:
       SMOKE_BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || vars.SMOKE_BASE_URL }}
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}

@@ -10,6 +10,15 @@ on:
       - ".github/actions/**"
       - ".github/workflows/frontend-s3-deploy.yml"
   workflow_dispatch:
+    inputs:
+      deployment_environment:
+        description: GitHub environment to deploy to
+        required: false
+        default: nonprod
+        type: choice
+        options:
+          - nonprod
+          - production
 
 permissions:
   id-token: write
@@ -30,7 +39,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment:
-      name: production
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_environment || 'production' }}
 
     steps:
       - name: Harden runner
@@ -84,6 +93,8 @@ jobs:
     needs: build-and-deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_environment || 'production' }}
     env:
       SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL }}
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
