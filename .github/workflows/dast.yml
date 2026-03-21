@@ -125,6 +125,9 @@ jobs:
             -u ${{ needs.validate-target.outputs.target_url }}
             -severity high,critical
             -rate-limit 10
+            -timeout 10
+            -retries 1
+            -no-interactsh
             -sarif-export nuclei.sarif
 
       - name: Upload Nuclei SARIF
