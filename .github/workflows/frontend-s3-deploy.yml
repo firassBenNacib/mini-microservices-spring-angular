@@ -116,10 +116,12 @@ jobs:
           bash ./scripts/publish_frontend_s3.sh "${args[@]}"
 
   release-smoke:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.smoke_base_url != '') || (github.event_name != 'workflow_dispatch' && vars.SMOKE_BASE_URL != '') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && (inputs.smoke_base_url != '' || vars.SMOKE_BASE_URL != '')) || (github.event_name != 'workflow_dispatch' && vars.SMOKE_BASE_URL != '') }}
     needs: build-and-deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_environment || 'production' }}
     env:
       SMOKE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_base_url || vars.SMOKE_BASE_URL }}
       SMOKE_BACKEND_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_backend_base_url || vars.SMOKE_BACKEND_BASE_URL }}
