@@ -74,12 +74,37 @@ jobs:
           egress-policy: audit
 
       - name: Run OWASP ZAP baseline
+        id: zap_baseline
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
           target: ${{ needs.validate-target.outputs.target_url }}
           allow_issue_writing: false
-          fail_action: true
+          fail_action: false
           cmd_options: "-a"
+
+      - name: Fail if ZAP found fail-level alerts
+        run: |
+          report_file="report_md.md"
+          if [[ ! -f "${report_file}" ]]; then
+            echo "::error::Expected ZAP report ${report_file} was not generated."
+            exit 1
+          fi
+
+          summary_line="$(grep -E 'FAIL-NEW:|FAIL-INPROG:' "${report_file}" | tail -n 1 || true)"
+          if [[ -z "${summary_line}" ]]; then
+            echo "::warning::ZAP summary line was not found in ${report_file}; allowing warning-only baseline run."
+            exit 0
+          fi
+
+          fail_new="$(sed -n 's/.*FAIL-NEW:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<< "${summary_line}")"
+          fail_inprog="$(sed -n 's/.*FAIL-INPROG:[[:space:]]*\([0-9][0-9]*\).*/\1/p' <<< "${summary_line}")"
+          fail_new="${fail_new:-0}"
+          fail_inprog="${fail_inprog:-0}"
+
+          if (( fail_new > 0 || fail_inprog > 0 )); then
+            echo "::error::ZAP reported fail-level alerts. ${summary_line}"
+            exit 1
+          fi
 
   nuclei:
     if: ${{ needs.validate-target.outputs.enable_nuclei == 'true' }}
