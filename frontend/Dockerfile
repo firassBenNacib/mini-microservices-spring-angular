@@ -1,9 +1,13 @@
 # syntax=docker/dockerfile:1.10
 FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS build
 
+ARG FRONTEND_PUBLIC_API_BASE_URL=""
+ENV FRONTEND_PUBLIC_API_BASE_URL="${FRONTEND_PUBLIC_API_BASE_URL}"
+
 WORKDIR /app
 
 COPY package.json package-lock.json angular.json tsconfig.json tsconfig.app.json tsconfig.spec.json ./
+COPY scripts ./scripts
 
 RUN --mount=type=cache,target=/root/.npm npm ci
 

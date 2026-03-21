@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { environment } from '@environments/environment';
 import { firstValueFrom, of, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 
@@ -27,8 +28,8 @@ describe('AuthService', () => {
     const session = await firstValueFrom(service.ensureSession());
 
     expect(session.authenticated).toBe(true);
-    expect(http.get).toHaveBeenCalledWith('/auth/session');
-    expect(http.post).toHaveBeenCalledWith('/auth/refresh', {});
+    expect(http.get).toHaveBeenCalledWith(`${environment.authUrl}/session`);
+    expect(http.post).toHaveBeenCalledWith(`${environment.authUrl}/refresh`, {});
     expect(service.isAuthenticated()).toBe(true);
   });
 
@@ -44,8 +45,8 @@ describe('AuthService', () => {
 
     await firstValueFrom(service.login('user@example.com', 'secret'));
 
-    expect(http.get).toHaveBeenCalledWith('/auth/session');
-    expect(http.post).toHaveBeenCalledWith('/auth/login', {
+    expect(http.get).toHaveBeenCalledWith(`${environment.authUrl}/session`);
+    expect(http.post).toHaveBeenCalledWith(`${environment.authUrl}/login`, {
       email: 'user@example.com',
       password: 'secret'
     });
@@ -54,7 +55,7 @@ describe('AuthService', () => {
 
   it('logout clears the session even when the backend call fails', async () => {
     http.post.mockImplementation((url: string) => {
-      if (url === '/auth/logout') {
+      if (url === `${environment.authUrl}/logout`) {
         return throwError(() => new Error('logout failed'));
       }
       return of({ authenticated: false, expiresIn: 0, user: null });
