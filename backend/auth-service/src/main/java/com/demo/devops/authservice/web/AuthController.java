@@ -22,6 +22,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,6 +44,7 @@ public class AuthController {
   private final AuditClient auditClient;
   private final PasswordEncoder passwordEncoder;
   private final boolean cookieSecure;
+  private final String cookieDomain;
 
   public AuthController(
       JwtService jwtService,
@@ -50,13 +52,15 @@ public class AuthController {
       UserRepository userRepository,
       AuditClient auditClient,
       PasswordEncoder passwordEncoder,
-      @Value("${app.cookie.secure:true}") boolean cookieSecure) {
+      @Value("${app.cookie.secure:true}") boolean cookieSecure,
+      @Value("${app.cookie.domain:}") String cookieDomain) {
     this.jwtService = jwtService;
     this.refreshTokenService = refreshTokenService;
     this.userRepository = userRepository;
     this.auditClient = auditClient;
     this.passwordEncoder = passwordEncoder;
     this.cookieSecure = cookieSecure;
+    this.cookieDomain = cookieDomain;
   }
 
   @GetMapping("/health")
@@ -209,25 +213,31 @@ public class AuthController {
   }
 
   private ResponseCookie buildCookie(String name, String value, boolean httpOnly, long maxAgeSeconds) {
-    return ResponseCookie.from(
+    ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(
             Objects.requireNonNull(name, "cookie name must not be null"),
             Objects.requireNonNull(value, "cookie value must not be null"))
         .httpOnly(httpOnly)
         .secure(cookieSecure)
         .sameSite("Lax")
         .path("/")
-        .maxAge(maxAgeSeconds)
-        .build();
+        .maxAge(maxAgeSeconds);
+    if (StringUtils.hasText(cookieDomain)) {
+      builder.domain(cookieDomain);
+    }
+    return builder.build();
   }
 
   private ResponseCookie clearCookie(String name, boolean httpOnly) {
-    return ResponseCookie.from(name, "")
+    ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, "")
         .httpOnly(httpOnly)
         .secure(cookieSecure)
         .sameSite("Lax")
         .path("/")
-        .maxAge(0)
-        .build();
+        .maxAge(0);
+    if (StringUtils.hasText(cookieDomain)) {
+      builder.domain(cookieDomain);
+    }
+    return builder.build();
   }
 
   private void addCookie(HttpServletResponse response, ResponseCookie cookie) {

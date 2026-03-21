@@ -35,6 +35,7 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
             .requestMatchers("/error").permitAll()
             .requestMatchers("/api/health").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/dashboard-status").permitAll()
             .requestMatchers("/v3/api-docs/**").permitAll()
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers("/actuator/info", "/actuator/prometheus").permitAll()

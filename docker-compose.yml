@@ -224,6 +224,7 @@ services:
     ports:
       - "${SPRING_GATEWAY_BIND_HOST:-127.0.0.1}:${SPRING_FRONTEND_PORT:-8080}:8080"
     environment:
+      DNS_RESOLVER: 127.0.0.11
       FRONTEND_UPSTREAM: frontend:8080
     <<: [*service-security, *readonly-nginx]
     cpus: "0.50"

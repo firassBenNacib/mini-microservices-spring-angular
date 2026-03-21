@@ -57,7 +57,8 @@ class AuthControllerTest {
             userRepository,
             auditClient,
             passwordEncoder,
-            false);
+            false,
+            "");
   }
 
   @Test
