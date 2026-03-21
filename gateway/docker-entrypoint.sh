@@ -21,7 +21,7 @@ fi
 export AUTH_SERVICE_UPSTREAM API_SERVICE_UPSTREAM AUDIT_SERVICE_UPSTREAM \
   NOTIFICATION_SERVICE_UPSTREAM DNS_RESOLVER FRONTEND_PUBLIC_ORIGIN FRONTEND_UPSTREAM
 
-runtime_dir="${NGINX_RUNTIME_DIR:-/var/cache/nginx/runtime}"
+runtime_dir="${NGINX_RUNTIME_DIR:-/dev/shm/nginx-runtime}"
 mkdir -p "${runtime_dir}"
 
 runtime_nginx_conf="${runtime_dir}/nginx.conf"
