@@ -1,5 +1,9 @@
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.trim().replace(/\/+$/, '');
+  let normalized = baseUrl.trim();
+  while (normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
 }
 
 function joinBaseAndPath(baseUrl: string, path: string): string {
