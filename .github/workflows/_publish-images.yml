@@ -191,6 +191,8 @@ jobs:
       - name: Build and push image
         id: build_and_push
         if: steps.ecr_preflight.outputs.skip_publish != 'true'
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: ${{ matrix.context }}
@@ -202,6 +204,8 @@ jobs:
 
       - name: Build local release image for SBOM generation
         if: steps.ecr_preflight.outputs.skip_publish != 'true'
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: ${{ matrix.context }}
