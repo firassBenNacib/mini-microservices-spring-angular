@@ -1,6 +1,3 @@
-export const environment = {
-  authUrl: '/auth',
-  apiUrl: '/api',
-  auditUrl: '/audit',
-  gatewayUrl: '/gateway'
-};
+import { buildEnvironment } from './environment.shared';
+
+export const environment = buildEnvironment();

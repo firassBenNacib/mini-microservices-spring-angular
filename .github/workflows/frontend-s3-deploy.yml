@@ -10,6 +10,37 @@ on:
       - ".github/actions/**"
       - ".github/workflows/frontend-s3-deploy.yml"
   workflow_dispatch:
+    inputs:
+      deployment_environment:
+        description: "GitHub environment name for this deployment"
+        required: false
+        default: "production"
+        type: string
+      frontend_bucket:
+        description: "Override S3 bucket for this deployment"
+        required: false
+        default: ""
+        type: string
+      frontend_distribution_id:
+        description: "Override CloudFront distribution ID for invalidation"
+        required: false
+        default: ""
+        type: string
+      frontend_public_api_base_url:
+        description: "Public backend base URL used when building the frontend"
+        required: false
+        default: ""
+        type: string
+      smoke_base_url:
+        description: "Frontend base URL for smoke tests"
+        required: false
+        default: ""
+        type: string
+      smoke_backend_base_url:
+        description: "Backend base URL for smoke tests"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   id-token: write
@@ -30,7 +61,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment:
-      name: production
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_environment || 'production' }}
 
     steps:
       - name: Harden runner
@@ -47,11 +78,13 @@ jobs:
         env:
           CLOUD_PROVIDER_REGION: ${{ vars.CLOUD_PROVIDER_REGION }}
           CLOUD_PROVIDER_ROLE_TO_ASSUME: ${{ vars.CLOUD_PROVIDER_ROLE_TO_ASSUME }}
-          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+          FRONTEND_BUCKET: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_bucket || vars.FRONTEND_BUCKET }}
+          FRONTEND_PUBLIC_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_public_api_base_url || vars.FRONTEND_PUBLIC_API_BASE_URL }}
         run: |
           test -n "${CLOUD_PROVIDER_REGION}" || { echo "::error::Set repository variable CLOUD_PROVIDER_REGION."; exit 1; }
           test -n "${CLOUD_PROVIDER_ROLE_TO_ASSUME}" || { echo "::error::Set repository variable CLOUD_PROVIDER_ROLE_TO_ASSUME."; exit 1; }
           test -n "${FRONTEND_BUCKET}" || { echo "::error::Set repository variable FRONTEND_BUCKET."; exit 1; }
+          test -n "${FRONTEND_PUBLIC_API_BASE_URL}" || { echo "::error::Set repository variable FRONTEND_PUBLIC_API_BASE_URL or provide workflow input frontend_public_api_base_url."; exit 1; }
 
       - name: Set up frontend workspace
         uses: ./.github/actions/setup-node-project
@@ -60,6 +93,8 @@ jobs:
 
       - name: Build frontend distribution
         working-directory: frontend
+        env:
+          FRONTEND_PUBLIC_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_public_api_base_url || vars.FRONTEND_PUBLIC_API_BASE_URL }}
         run: npm run build
 
       - name: Configure AWS credentials
@@ -70,8 +105,9 @@ jobs:
 
       - name: Build and deploy frontend
         env:
-          FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
-          FRONTEND_DISTRIBUTION_ID: ${{ vars.FRONTEND_DISTRIBUTION_ID }}
+          FRONTEND_BUCKET: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_bucket || vars.FRONTEND_BUCKET }}
+          FRONTEND_DISTRIBUTION_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_distribution_id || vars.FRONTEND_DISTRIBUTION_ID }}
+          FRONTEND_PUBLIC_API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.frontend_public_api_base_url || vars.FRONTEND_PUBLIC_API_BASE_URL }}
         run: |
           args=(--bucket "${FRONTEND_BUCKET}")
           if [ -n "${FRONTEND_DISTRIBUTION_ID}" ]; then
@@ -80,12 +116,13 @@ jobs:
           ./scripts/publish_frontend_s3.sh "${args[@]}"
 
   release-smoke:
-    if: ${{ vars.SMOKE_BASE_URL != '' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.smoke_base_url != '') || (github.event_name != 'workflow_dispatch' && vars.SMOKE_BASE_URL != '') }}
     needs: build-and-deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL }}
+      SMOKE_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_base_url || vars.SMOKE_BASE_URL }}
+      SMOKE_BACKEND_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_backend_base_url || vars.SMOKE_BACKEND_BASE_URL }}
       SMOKE_AUTH_EMAIL: ${{ secrets.SMOKE_AUTH_EMAIL }}
       SMOKE_AUTH_PASSWORD: ${{ secrets.SMOKE_AUTH_PASSWORD }}
     steps:
@@ -100,4 +137,9 @@ jobs:
           persist-credentials: false
 
       - name: Run post-deploy smoke tests
-        run: bash ./scripts/smoke_test.sh --base-url "${SMOKE_BASE_URL}"
+        run: |
+          args=(--base-url "${SMOKE_BASE_URL}")
+          if [ -n "${SMOKE_BACKEND_BASE_URL}" ]; then
+            args+=(--backend-base-url "${SMOKE_BACKEND_BASE_URL}")
+          fi
+          bash ./scripts/smoke_test.sh "${args[@]}"

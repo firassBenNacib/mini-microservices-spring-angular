@@ -2,13 +2,14 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-}"
+BACKEND_BASE_URL="${BACKEND_BASE_URL:-${SMOKE_BACKEND_BASE_URL:-}}"
 SMOKE_AUTH_EMAIL="${SMOKE_AUTH_EMAIL:-}"
 SMOKE_AUTH_PASSWORD="${SMOKE_AUTH_PASSWORD:-}"
 REQUIRE_AUTH_SMOKE="${REQUIRE_AUTH_SMOKE:-false}"
 
 usage() {
   cat <<'EOF'
-Usage: smoke_test.sh --base-url <url>
+Usage: smoke_test.sh --base-url <url> [--backend-base-url <url>]
 
 Optional environment:
   SMOKE_AUTH_EMAIL
@@ -21,6 +22,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --base-url)
       BASE_URL="$2"
+      shift 2
+      ;;
+    --backend-base-url)
+      BACKEND_BASE_URL="$2"
       shift 2
       ;;
     -h|--help)
@@ -41,6 +46,8 @@ if [[ -z "${BASE_URL}" ]]; then
 fi
 
 BASE_URL="${BASE_URL%/}"
+BACKEND_BASE_URL="${BACKEND_BASE_URL:-${BASE_URL}}"
+BACKEND_BASE_URL="${BACKEND_BASE_URL%/}"
 TMP_DIR="$(mktemp -d)"
 COOKIE_JAR="${TMP_DIR}/cookies.txt"
 trap 'rm -rf "${TMP_DIR}"' EXIT
@@ -51,9 +58,10 @@ csrf_token() {
 }
 
 request() {
-  local method="$1"
-  local path="$2"
-  local body="${3:-}"
+  local target_base_url="$1"
+  local method="$2"
+  local path="$3"
+  local body="${4:-}"
   local headers_file="${TMP_DIR}/headers.txt"
   local body_file="${TMP_DIR}/body.txt"
   local -a curl_args=(
@@ -82,7 +90,7 @@ request() {
     fi
   fi
 
-  status="$(curl "${curl_args[@]}" "${BASE_URL}${path}")"
+  status="$(curl "${curl_args[@]}" "${target_base_url}${path}")"
 
   printf '%s\n' "${status}" > "${TMP_DIR}/status.txt"
 }
@@ -108,7 +116,7 @@ assert_body_contains() {
 }
 
 echo "Smoke check: frontend root"
-request GET /
+request "${BASE_URL}" GET /
 assert_status 200
 if ! grep -Eiq '<!doctype html|<html' "${TMP_DIR}/body.txt"; then
   echo "Root response did not look like HTML." >&2
@@ -117,17 +125,17 @@ if ! grep -Eiq '<!doctype html|<html' "${TMP_DIR}/body.txt"; then
 fi
 
 echo "Smoke check: gateway health"
-request GET /gateway/health
+request "${BACKEND_BASE_URL}" GET /gateway/health
 assert_status 200
 assert_body_contains '"status":"ok"'
 
 echo "Smoke check: auth session"
-request GET /auth/session
+request "${BACKEND_BASE_URL}" GET /auth/session
 assert_status 200
 assert_body_contains '"authenticated":false'
 
 echo "Smoke check: api health"
-request GET /api/health
+request "${BACKEND_BASE_URL}" GET /api/health
 assert_status 200
 assert_body_contains '"status":"ok"'
 
@@ -141,7 +149,7 @@ print(json.dumps({
 }))
 PY
 )"
-  request POST /auth/login "${login_payload}"
+  request "${BACKEND_BASE_URL}" POST /auth/login "${login_payload}"
   login_status="$(<"${TMP_DIR}/status.txt")"
   if [[ "${login_status}" != "200" ]]; then
     if [[ "${REQUIRE_AUTH_SMOKE}" == "true" ]]; then
@@ -158,17 +166,17 @@ PY
   assert_body_contains '"authenticated":true'
 
   echo "Smoke check: authenticated session"
-  request GET /auth/session
+  request "${BACKEND_BASE_URL}" GET /auth/session
   assert_status 200
   assert_body_contains '"authenticated":true'
 
   echo "Smoke check: protected api message"
-  request GET /api/message
+  request "${BACKEND_BASE_URL}" GET /api/message
   assert_status 200
   assert_body_contains 'Microservices deployed and working'
 
   echo "Smoke check: protected audit recent"
-  request GET '/audit/recent?limit=5'
+  request "${BACKEND_BASE_URL}" GET '/audit/recent?limit=5'
   assert_status 200
   assert_body_contains "${SMOKE_AUTH_EMAIL}"
 else

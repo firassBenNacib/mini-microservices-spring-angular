@@ -4,10 +4,11 @@ import { provideRouter } from '@angular/router';
 import { AppComponent } from './app/app.component';
 import { appRoutes } from './app/app.routes';
 import { authInterceptor } from './app/core/interceptors/auth.interceptor';
+import { backendCredentialsInterceptor } from './app/core/interceptors/backend-credentials.interceptor';
 
 bootstrapApplication(AppComponent, {
   providers: [
-    provideHttpClient(withInterceptors([authInterceptor]), withXsrfConfiguration({
+    provideHttpClient(withInterceptors([backendCredentialsInterceptor, authInterceptor]), withXsrfConfiguration({
       cookieName: 'XSRF-TOKEN',
       headerName: 'X-XSRF-TOKEN'
     })),

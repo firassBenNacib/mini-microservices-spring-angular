@@ -203,7 +203,7 @@ The repo uses a small set of production-oriented workflows under [`.github/workf
 - `scorecard.yml`: OSSF Scorecard report artifact for repository governance posture
 - `dockerhub-publish.yml`: publish, attest, and keylessly sign release-tagged images in DockerHub
 - `ecr-publish.yml`: publish, attest, and keylessly sign release-tagged images in ECR
-- `frontend-s3-deploy.yml`: build the frontend, deploy it to object storage, and run release smoke checks when `SMOKE_BASE_URL` is configured
+- `frontend-s3-deploy.yml`: build the frontend, deploy it to object storage, and run release smoke checks when `SMOKE_BASE_URL` is configured; `workflow_dispatch` can override the bucket, backend API URL, and smoke targets for non-prod rollouts
 
 Normal publish behavior is tag-driven:
 
@@ -219,8 +219,10 @@ Use GitHub repository or environment **Variables** for non-sensitive configurati
 - `CLOUD_PROVIDER_ROLE_TO_ASSUME`
 - `FRONTEND_BUCKET`
 - `FRONTEND_DISTRIBUTION_ID` (optional)
+- `FRONTEND_PUBLIC_API_BASE_URL`
 - `DAST_TARGET_URL`
 - `SMOKE_BASE_URL`
+- `SMOKE_BACKEND_BASE_URL` (optional, defaults to `SMOKE_BASE_URL`)
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_NAMESPACE`
 - `ECR_IMAGE_NAMESPACE` (optional, defaults to `microservices`)
