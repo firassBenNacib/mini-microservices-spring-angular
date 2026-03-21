@@ -92,7 +92,7 @@ jobs:
 
           summary_line="$(grep -E 'FAIL-NEW:|FAIL-INPROG:' "${report_file}" | tail -n 1 || true)"
           if [[ -z "${summary_line}" ]]; then
-            echo "::warning::ZAP summary line was not found in ${report_file}; allowing warning-only baseline run."
+            echo "::notice::ZAP report did not include fail summary counters; allowing warning-only baseline run."
             exit 0
           fi
 
@@ -117,14 +117,23 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Install Nuclei CLI
+        run: |
+          nuclei_version="3.7.1"
+          archive="nuclei_${nuclei_version}_linux_amd64.zip"
+          curl -fsSL -o "${archive}" "https://github.com/projectdiscovery/nuclei/releases/download/v${nuclei_version}/${archive}"
+          unzip -q "${archive}" nuclei
+          install -m 0755 nuclei /usr/local/bin/nuclei
+
       - name: Run Nuclei
-        uses: projectdiscovery/nuclei-action@32a91c0da7be14c07b0ade6c14fa0f6e78d97c9c # v3.1.0
-        with:
-          version: v3.7.1
-          args: >-
-            -u ${{ needs.validate-target.outputs.target_url }}
-            -severity high,critical
-            -rate-limit 10
+        run: |
+          nuclei \
+            -u "${{ needs.validate-target.outputs.target_url }}" \
+            -severity high,critical \
+            -rate-limit 10 \
+            -timeout 10 \
+            -retries 1 \
+            -no-interactsh \
             -sarif-export nuclei.sarif
 
       - name: Upload Nuclei SARIF
