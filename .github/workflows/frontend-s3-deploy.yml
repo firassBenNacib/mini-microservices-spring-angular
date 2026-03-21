@@ -86,7 +86,7 @@ jobs:
           if [ -n "${FRONTEND_DISTRIBUTION_ID}" ]; then
             args+=(--distribution-id "${FRONTEND_DISTRIBUTION_ID}")
           fi
-          ./scripts/publish_frontend_s3.sh "${args[@]}"
+          bash ./scripts/publish_frontend_s3.sh "${args[@]}"
 
   release-smoke:
     if: ${{ vars.SMOKE_BASE_URL != '' }}
