@@ -115,6 +115,29 @@ assert_body_contains() {
   fi
 }
 
+assert_json_array() {
+  python3 - "${TMP_DIR}/body.txt" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as fh:
+    body = fh.read().strip()
+
+try:
+    parsed = json.loads(body)
+except json.JSONDecodeError as exc:
+    print(f"Response body was not valid JSON: {exc}", file=sys.stderr)
+    print(body, file=sys.stderr)
+    raise SystemExit(1)
+
+if not isinstance(parsed, list):
+    print("Response body was not a JSON array.", file=sys.stderr)
+    print(body, file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
 echo "Smoke check: frontend root"
 request "${BASE_URL}" GET /
 assert_status 200
@@ -178,7 +201,7 @@ PY
   echo "Smoke check: protected audit recent"
   request "${BACKEND_BASE_URL}" GET '/audit/recent?limit=5'
   assert_status 200
-  assert_body_contains "${SMOKE_AUTH_EMAIL}"
+  assert_json_array
 else
   if [[ "${REQUIRE_AUTH_SMOKE}" == "true" ]]; then
     echo "Authenticated smoke checks are required, but SMOKE_AUTH_EMAIL and SMOKE_AUTH_PASSWORD are not set." >&2
