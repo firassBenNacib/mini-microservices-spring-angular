@@ -48,6 +48,7 @@ class ApiOpenApiDocumentationTest {
     assertNotNull(result.getOpenAPI());
     assertTrue(result.getMessages().isEmpty(), () -> "Unexpected OpenAPI parser messages: " + result.getMessages());
     assertEquals("3.1.0", result.getOpenAPI().getOpenapi());
+    assertTrue(result.getOpenAPI().getPaths().containsKey("/api/dashboard-status"));
     assertTrue(result.getOpenAPI().getPaths().containsKey("/api/message"));
     assertTrue(result.getOpenAPI().getPaths().containsKey("/api/send-test-email"));
     assertTrue(result.getOpenAPI().getPaths().containsKey("/api/send-test-notification"));

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nonprod.microservices.firasbennacib.com/sitemap.xml
