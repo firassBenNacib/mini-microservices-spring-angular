@@ -21,8 +21,14 @@ fi
 export AUTH_SERVICE_UPSTREAM API_SERVICE_UPSTREAM AUDIT_SERVICE_UPSTREAM \
   NOTIFICATION_SERVICE_UPSTREAM DNS_RESOLVER FRONTEND_PUBLIC_ORIGIN FRONTEND_UPSTREAM
 
-cp /etc/nginx/nginx.conf /tmp/nginx.conf
-sed -i 's|include /etc/nginx/conf.d/\*.conf;|include /tmp/default.conf;|' /tmp/nginx.conf
+runtime_dir="${NGINX_RUNTIME_DIR:-/var/cache/nginx/runtime}"
+mkdir -p "${runtime_dir}"
+
+runtime_nginx_conf="${runtime_dir}/nginx.conf"
+runtime_default_conf="${runtime_dir}/default.conf"
+
+cp /etc/nginx/nginx.conf "${runtime_nginx_conf}"
+sed -i "s|include /etc/nginx/conf.d/\\*.conf;|include ${runtime_default_conf};|" "${runtime_nginx_conf}"
 
 template="/etc/nginx/templates/default.conf.template"
 # shellcheck disable=SC2016
@@ -33,5 +39,5 @@ if [ -n "${FRONTEND_UPSTREAM:-}" ]; then
   variables="$variables \$FRONTEND_UPSTREAM"
 fi
 
-envsubst "$variables" < "$template" > /tmp/default.conf
-exec nginx -c /tmp/nginx.conf -g 'daemon off;'
+envsubst "$variables" < "$template" > "${runtime_default_conf}"
+exec nginx -c "${runtime_nginx_conf}" -g 'daemon off;'
