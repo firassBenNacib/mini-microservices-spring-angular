@@ -9,10 +9,18 @@ ENV_EXAMPLE=".env.local.example"
 ENV_FILE=".env"
 TMP_DIR="$(mktemp -d)"
 ENV_BACKUP="${TMP_DIR}/env.backup"
+ARTIFACT_DIR="${ROOT_DIR}/integration-artifacts"
 had_env=0
 
 cleanup() {
   local exit_code=$?
+  mkdir -p "${ARTIFACT_DIR}"
+  printf 'Integration workflow result: %s\n' "$([[ "${exit_code}" -eq 0 ]] && echo success || echo failure)" \
+    > "${ARTIFACT_DIR}/summary.txt"
+  DOCKERHUB_USERNAME=local "${COMPOSE_CMD[@]}" ps -a \
+    > "${ARTIFACT_DIR}/compose-ps.txt" || true
+  DOCKERHUB_USERNAME=local "${COMPOSE_CMD[@]}" logs --no-color \
+    > "${ARTIFACT_DIR}/compose-logs.txt" || true
   if (( exit_code != 0 )); then
     "${COMPOSE_CMD[@]}" ps || true
     "${COMPOSE_CMD[@]}" logs --no-color --tail=200 || true
@@ -26,6 +34,8 @@ cleanup() {
   rm -rf "${TMP_DIR}"
 }
 trap cleanup EXIT
+
+rm -rf "${ARTIFACT_DIR}"
 
 if [[ -f "${ENV_FILE}" ]]; then
   cp "${ENV_FILE}" "${ENV_BACKUP}"

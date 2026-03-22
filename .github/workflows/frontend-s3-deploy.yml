@@ -12,10 +12,13 @@ on:
   workflow_dispatch:
     inputs:
       deployment_environment:
-        description: "GitHub environment name for this deployment"
+        description: GitHub environment to deploy to
         required: false
-        default: "production"
-        type: string
+        default: nonprod
+        type: choice
+        options:
+          - nonprod
+          - production
       frontend_bucket:
         description: "Override S3 bucket for this deployment"
         required: false
