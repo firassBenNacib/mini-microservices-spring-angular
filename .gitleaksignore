@@ -2,3 +2,5 @@
 e922d0dcb246db730ade9f7e21417c9cdfafbcfa:backend/api-service/src/test/java/com/demo/devops/apiservice/security/JwtServiceTest.java:generic-api-key:18
 e922d0dcb246db730ade9f7e21417c9cdfafbcfa:backend/audit-service/src/test/java/com/demo/devops/auditservice/security/JwtServiceTest.java:generic-api-key:18
 e922d0dcb246db730ade9f7e21417c9cdfafbcfa:backend/auth-service/src/test/java/com/demo/devops/authservice/security/JwtServiceTest.java:generic-api-key:18
+f2eb539e869e1fbeaae4ca36281bb3d9a4d7b704:gateway/nginx.conf:generic-api-key:54
+f2eb539e869e1fbeaae4ca36281bb3d9a4d7b704:gateway/nginx.conf:generic-api-key:64
