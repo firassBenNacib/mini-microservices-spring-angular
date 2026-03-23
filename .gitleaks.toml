@@ -2,13 +2,12 @@
 useDefault = true
 
 [[allowlists]]
-description = "Ignore false-positive internal gateway upstream host:port matches in historical nginx config"
-commits = ["f2eb539e869e1fbeaae4ca36281bb3d9a4d7b704"]
+description = "Ignore false-positive internal gateway upstream host:port matches in nginx config"
 paths = ['''^gateway/nginx\.conf$''']
-regexTarget = "match"
+regexTarget = "line"
 regexes = [
-  '''proxy_pass http://auth-service:8081;''',
-  '''proxy_pass http://api-service:8082;''',
+  '''^\s*proxy_pass http://auth-service:8081;\s*$''',
+  '''^\s*proxy_pass http://api-service:8082;\s*$''',
 ]
 
 [[allowlists]]
