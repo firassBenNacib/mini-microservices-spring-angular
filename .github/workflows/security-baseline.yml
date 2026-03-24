@@ -87,7 +87,7 @@ jobs:
 
       - name: Upload Trivy secrets SARIF
         if: always() && hashFiles('trivy-secrets.sarif') != ''
-        uses: github/codeql-action/upload-sarif@b1bff81932f5cdfc8695c7752dcee935dcd061c8 # v4
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
         with:
           sarif_file: trivy-secrets.sarif
           category: trivy-secrets
@@ -138,7 +138,7 @@ jobs:
 
       - name: Upload Trivy config SARIF
         if: always() && hashFiles('trivy-config.sarif') != ''
-        uses: github/codeql-action/upload-sarif@b1bff81932f5cdfc8695c7752dcee935dcd061c8 # v4
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
         with:
           sarif_file: trivy-config.sarif
           category: trivy-config
