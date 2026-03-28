@@ -144,6 +144,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install notification-service Python dependencies
+        run: python -m pip install -r backend/notification-service/requirements.txt
+
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04
 
@@ -208,6 +211,9 @@ jobs:
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
+
+      - name: Install notification-service Python dependencies
+        run: python -m pip install -r backend/notification-service/requirements.txt
 
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04
