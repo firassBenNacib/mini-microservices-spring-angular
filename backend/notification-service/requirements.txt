@@ -2,3 +2,5 @@ fastapi==0.135.2
 uvicorn[standard]==0.42.0
 httpx==0.28.1
 python-multipart==0.0.22
+certifi==2024.7.4
+idna==3.7

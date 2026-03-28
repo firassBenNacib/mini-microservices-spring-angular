@@ -1,0 +1,221 @@
+name: Dependency Security
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: dependency-security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TRIVY_VERSION: v0.69.3
+
+jobs:
+  snyk-config:
+    name: Resolve Snyk configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.resolve.outputs.enabled }}
+    steps:
+      - name: Resolve Snyk token availability
+        id: resolve
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [[ -n "${SNYK_TOKEN}" ]]; then
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+  trivy-dependency-scan:
+    name: Trivy dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Trivy
+        run: |
+          tmp="$(mktemp -d)"
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz" -o "$tmp/trivy.tar.gz"
+          tar -xzf "$tmp/trivy.tar.gz" -C "$tmp"
+          install "$tmp/trivy" /usr/local/bin/trivy
+
+      - name: Dependency vulnerability scan
+        id: trivy_vuln
+        continue-on-error: true
+        run: |
+          trivy fs . \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output trivy-dependencies.sarif \
+            --exit-code 1 \
+            --quiet
+
+      - name: Upload dependency scan SARIF
+        if: always() && hashFiles('trivy-dependencies.sarif') != ''
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
+        with:
+          sarif_file: trivy-dependencies.sarif
+          category: dependency-review
+
+      - name: Fail if dependency scan detected high-risk vulnerabilities
+        if: steps.trivy_vuln.outcome == 'failure'
+        run: |
+          echo "Dependency vulnerability scan detected one or more HIGH or CRITICAL issues."
+          exit 1
+
+  dependency-policy-review:
+    name: Dependency policy review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
+
+  snyk-open-source:
+    name: Snyk open-source scan
+    needs:
+      - snyk-config
+    if: needs.snyk-config.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: false
+
+      - name: Select preinstalled JDK
+        run: |
+          echo "JAVA_HOME=${JAVA_HOME_17_X64}" >> "${GITHUB_ENV}"
+          echo "${JAVA_HOME_17_X64}/bin" >> "${GITHUB_PATH}"
+          java -version
+
+      - name: Set up frontend workspace
+        uses: ./.github/actions/setup-node-project
+        with:
+          working_directory: frontend
+          install: "true"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04
+
+      - name: Run Snyk Open Source test
+        id: snyk_test
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk test \
+            --all-projects \
+            --detection-depth=4 \
+            --severity-threshold=high \
+            --sarif-file-output=snyk-open-source.sarif
+
+      - name: Upload Snyk SARIF
+        if: always() && hashFiles('snyk-open-source.sarif') != ''
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
+        with:
+          sarif_file: snyk-open-source.sarif
+          category: snyk-open-source
+
+      - name: Fail if Snyk detected high-risk vulnerabilities
+        if: steps.snyk_test.outcome == 'failure'
+        run: |
+          echo "Snyk detected one or more HIGH or CRITICAL open-source vulnerabilities."
+          exit 1
+
+  snyk-open-source-monitor:
+    name: Snyk monitor
+    needs:
+      - snyk-config
+      - trivy-dependency-scan
+      - snyk-open-source
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.snyk-config.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Select preinstalled JDK
+        run: |
+          echo "JAVA_HOME=${JAVA_HOME_17_X64}" >> "${GITHUB_ENV}"
+          echo "${JAVA_HOME_17_X64}/bin" >> "${GITHUB_PATH}"
+          java -version
+
+      - name: Set up frontend workspace
+        uses: ./.github/actions/setup-node-project
+        with:
+          working_directory: frontend
+          install: "true"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04
+
+      - name: Monitor dependencies in Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk monitor \
+            --all-projects \
+            --detection-depth=4
