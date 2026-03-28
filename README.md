@@ -27,7 +27,6 @@ A mini microservices application with Spring Boot backends, an Angular frontend,
 
 - Docker Engine
 - Docker Compose plugin
-- A Docker Hub account if you want to publish your own images
 - Twilio account and credentials if you test SMS delivery
 
 ## Installation
