@@ -10,7 +10,7 @@ x-db-env: &db-env
   SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
   SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
   SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-  SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+  SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
 
 x-audit-env: &audit-env
   AUDIT_URL: ${AUDIT_URL:-http://audit-service:8084/audit/events}
@@ -91,6 +91,11 @@ services:
   mailpit:
     image: axllent/mailpit@sha256:7c38788069433ba9d2d9131abac8d17da0fb18f09b689207ec7a773dcb8d6eee
     container_name: spring-demo-mailpit
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8025/ >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
     <<: *service-security
     cpus: "0.50"
     mem_limit: "256m"
@@ -126,7 +131,7 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/devops_demo}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
       AUDIT_API_KEY: ${AUDIT_API_KEY}
     <<: [*service-security, *readonly-runtime]
     cpus: "1.0"
