@@ -10,6 +10,7 @@ COMPOSE_IMAGES := $(COMPOSE_BASE) -f docker-compose.images.yml
 COMPOSE_BUILD := $(COMPOSE_BASE) -f docker-compose.build.yml
 COMPOSE_DEV_IMAGES := $(COMPOSE_IMAGES) -f docker-compose.dev.yml
 COMPOSE_DEV_BUILD := $(COMPOSE_BUILD) -f docker-compose.dev.yml
+LOCAL_BUILD_ENV := DOCKERHUB_USERNAME=local
 
 PUBLISH_FRONTEND_SCRIPT := $(SCRIPT_DIR)/publish_frontend_s3.sh
 PUSH_ECR_SCRIPT := $(SCRIPT_DIR)/build_push_ecr.sh
@@ -31,13 +32,16 @@ help:
 	printf "Available targets:\n\n"
 	printf "  %-22s %s\n" "up" "Pull pinned images and start the base application"
 	printf "  %-22s %s\n" "up-images" "Start the published tag-based application"
-	printf "  %-22s %s\n" "up-build" "Build from local source and start the application"
+	printf "  %-22s %s\n" "up-build" "Rebuild from local source and recreate the application"
+	printf "  %-22s %s\n" "up-build-fresh" "Clean local artifacts, rebuild without cache, and recreate"
 	printf "\n"
 	printf "  %-22s %s\n" "up-dev-images" "Start published images with localhost dev ports"
-	printf "  %-22s %s\n" "up-dev-build" "Build locally with localhost dev ports"
+	printf "  %-22s %s\n" "up-dev-build" "Rebuild locally with localhost dev ports"
+	printf "  %-22s %s\n" "up-dev-build-fresh" "Clean local artifacts, rebuild dev images without cache"
 	printf "\n"
 	printf "  %-22s %s\n" "down" "Stop the application and remove containers/networks"
 	printf "  %-22s %s\n" "down-volumes" "Stop the application and remove volumes too"
+	printf "  %-22s %s\n" "clean-artifacts" "Remove local frontend/backend build artifacts and caches"
 	printf "  %-22s %s\n" "ps" "Show container status for the base application"
 	printf "  %-22s %s\n" "logs" "Tail gateway/auth/api logs"
 	printf "\n"
@@ -63,7 +67,13 @@ up-images:
 
 .PHONY: up-build
 up-build:
-	DOCKERHUB_USERNAME=local $(COMPOSE_BUILD) up -d --build
+	$(LOCAL_BUILD_ENV) $(COMPOSE_BUILD) build --pull
+	$(LOCAL_BUILD_ENV) $(COMPOSE_BUILD) up -d --force-recreate
+
+.PHONY: up-build-fresh
+up-build-fresh: clean-artifacts
+	$(LOCAL_BUILD_ENV) $(COMPOSE_BUILD) build --pull --no-cache
+	$(LOCAL_BUILD_ENV) $(COMPOSE_BUILD) up -d --force-recreate
 
 .PHONY: up-dev-images
 up-dev-images:
@@ -72,7 +82,13 @@ up-dev-images:
 
 .PHONY: up-dev-build
 up-dev-build:
-	DOCKERHUB_USERNAME=local $(COMPOSE_DEV_BUILD) up -d --build
+	$(LOCAL_BUILD_ENV) $(COMPOSE_DEV_BUILD) build --pull
+	$(LOCAL_BUILD_ENV) $(COMPOSE_DEV_BUILD) up -d --force-recreate
+
+.PHONY: up-dev-build-fresh
+up-dev-build-fresh: clean-artifacts
+	$(LOCAL_BUILD_ENV) $(COMPOSE_DEV_BUILD) build --pull --no-cache
+	$(LOCAL_BUILD_ENV) $(COMPOSE_DEV_BUILD) up -d --force-recreate
 
 .PHONY: down
 down:
@@ -81,6 +97,14 @@ down:
 .PHONY: down-volumes
 down-volumes:
 	$(COMPOSE_BASE) down --remove-orphans --volumes
+
+.PHONY: clean-artifacts
+clean-artifacts:
+	find backend -mindepth 2 -maxdepth 2 -type d -name target -exec rm -rf {} +
+	rm -rf frontend/node_modules frontend/dist frontend/.angular
+	if [[ -d .artifacts ]]; then
+		find .artifacts -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+	fi
 
 .PHONY: ps
 ps:
