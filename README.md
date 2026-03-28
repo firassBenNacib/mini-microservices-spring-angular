@@ -38,6 +38,7 @@ cp .env.local.example .env
 ```
 
 Update `.env` with real values before running the application.
+For cloud or shared environments, keep schema handling migration-first with `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`.
 
 ## Usage
 
@@ -122,6 +123,7 @@ cp .env.local.example .env
 ```
 
 `.env.local.example` is intended to boot the local application with safe demo values. Keep real cloud credentials out of it.
+It intentionally keeps `SPRING_JPA_HIBERNATE_DDL_AUTO=update` for local convenience only; use `validate` in shared or cloud deployments.
 
 For a cloud deployment, keep real values in your secret manager, task definition, or deployment system rather than committing a real `.env`.
 
@@ -191,7 +193,7 @@ SonarQube quality gate snapshot:
 The repo uses a small set of production-oriented workflows under [`.github/workflows/`](./.github/workflows):
 
 - `ci.yml`: workflow lint, Dockerfile lint, shell lint, compose validation, frontend build/tests, service tests, and image build verification
-- `dependency-review.yml`: dependency review on pull requests
+- `dependency-review.yml`: dependency-security lane for Trivy dependency scanning plus Snyk open-source scanning on pull requests, with Snyk `monitor` on `main` when `SNYK_TOKEN` is configured
 - `codeql.yml`: SAST for Java, JavaScript/TypeScript, and Python
 - `security-baseline.yml`: Gitleaks history scanning plus Trivy secret/config scanning
 - `container-security.yml`: SBOM generation plus Grype image scanning; Grype remains a CI gate and artifact report, while GitHub code scanning stays focused on source and SARIF-based findings
@@ -225,10 +227,12 @@ Use GitHub repository or environment **Variables** for non-sensitive configurati
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_NAMESPACE`
 - `ECR_IMAGE_NAMESPACE` (optional, defaults to `microservices`)
+- `SNYK_INTEGRATION_ID` (optional, only for future Snyk API/import automation; not required by the GitHub Actions workflow)
 
 Use GitHub **Secrets** only for sensitive values:
 
 - `DOCKERHUB_TOKEN`
+- `SNYK_TOKEN` (required to enable the Snyk workflow)
 - `SMOKE_AUTH_EMAIL` (optional)
 - `SMOKE_AUTH_PASSWORD` (optional)
 
