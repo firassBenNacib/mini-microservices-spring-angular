@@ -193,7 +193,7 @@ SonarQube quality gate snapshot:
 The repo uses a small set of production-oriented workflows under [`.github/workflows/`](./.github/workflows):
 
 - `ci.yml`: workflow lint, Dockerfile lint, shell lint, compose validation, frontend build/tests, service tests, and image build verification
-- `dependency-review.yml`: dependency-security lane for Trivy dependency scanning plus Snyk open-source scanning on pull requests, with Snyk `monitor` on `main` when `SNYK_TOKEN` is configured
+- `dependency-security.yml`: dependency-security lane for Trivy dependency scanning, GitHub dependency policy review on pull requests, and Snyk open-source scanning, with Snyk `monitor` on `main` when `SNYK_TOKEN` is configured
 - `codeql.yml`: SAST for Java, JavaScript/TypeScript, and Python
 - `security-baseline.yml`: Gitleaks history scanning plus Trivy secret/config scanning
 - `container-security.yml`: SBOM generation plus Grype image scanning; Grype remains a CI gate and artifact report, while GitHub code scanning stays focused on source and SARIF-based findings

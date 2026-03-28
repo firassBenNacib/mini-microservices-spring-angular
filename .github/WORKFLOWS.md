@@ -4,7 +4,7 @@
 - `security-baseline.yml`: Gitleaks history scanning plus Trivy secret/config scanning.
 - `container-security.yml`: Syft SBOM generation and Grype image scanning with artifact reports.
 - `image-advisory-report.yml`: scheduled/manual stricter Grype reporting for fixed `HIGH,CRITICAL` image vulnerabilities.
-- `dependency-review.yml`: dependency-security lane combining Trivy dependency scanning with Snyk Open Source scanning on pull requests, plus Snyk monitoring on `main` when `SNYK_TOKEN` is configured.
+- `dependency-security.yml`: dependency-security lane combining Trivy dependency scanning, GitHub dependency policy review on pull requests, and Snyk Open Source scanning, plus Snyk monitoring on `main` when `SNYK_TOKEN` is configured.
 - `codeql.yml`: source code scanning for Java, JavaScript/TypeScript, and Python.
 - `dockerhub-publish.yml` and `ecr-publish.yml`: tag-driven release publishing, attestations, and Cosign signing.
 - `frontend-s3-deploy.yml`: frontend deploy plus post-deploy smoke test.

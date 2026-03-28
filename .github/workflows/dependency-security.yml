@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
   security-events: write
 
 concurrency:
@@ -38,7 +39,7 @@ jobs:
             echo "enabled=false" >> "${GITHUB_OUTPUT}"
           fi
 
-  dependency-review:
+  trivy-dependency-scan:
     name: Trivy dependency scan
     runs-on: ubuntu-latest
     steps:
@@ -84,6 +85,28 @@ jobs:
         run: |
           echo "Dependency vulnerability scan detected one or more HIGH or CRITICAL issues."
           exit 1
+
+  dependency-policy-review:
+    name: Dependency policy review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@daf02f1ee2792810dcbfbb810f4c0f18b1d5530a # v4.7.3
+        with:
+          fail-on-severity: high
 
   snyk-open-source:
     name: Snyk open-source scan
@@ -153,7 +176,7 @@ jobs:
     name: Snyk monitor
     needs:
       - snyk-config
-      - dependency-review
+      - trivy-dependency-scan
       - snyk-open-source
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.snyk-config.outputs.enabled == 'true'
     runs-on: ubuntu-latest
