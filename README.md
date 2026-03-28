@@ -19,7 +19,6 @@ A mini microservices application with Spring Boot backends, an Angular frontend,
 - [Build and Push Images](#build-and-push-images)
 - [CI/CD and Security Workflows](#cicd-and-security-workflows)
 - [GitHub Actions Configuration](#github-actions-configuration)
-- [Public vs Local Files](#public-vs-local-files)
 - [License](#license)
 - [Author](#author)
 
@@ -241,28 +240,6 @@ The deploy and publish workflows use GitHub OIDC for cloud authentication, so lo
 For live deploy controls, create a GitHub environment named `production` and attach the protection rules you want there, for example required reviewers, deployment branch restrictions, and wait timers. The live deploy, DAST, and smoke workflows are wired to use that environment.
 
 Dependabot is configured for ongoing weekly refreshes of Actions, service dependencies, and frontend dependencies through [`.github/dependabot.yml`](./.github/dependabot.yml).
-
-## Public vs Local Files
-
-Safe to push to a public repository:
-
-- application source code
-- Dockerfiles and Compose files
-- `Makefile`
-- `scripts/`
-- `.github/workflows/`
-- example environment contracts:
-  - `.env.local.example`
-  - `.env.cloud-provider.example`
-- repo metadata such as `.github/dependabot.yml` and `.github/WORKFLOWS.md`
-
-Keep local and do not commit:
-
-- `.env`
-- any real secret values copied from Twilio, SMTP, JWT, or database credentials
-- built frontend artifacts under `frontend/dist/`
-- local caches such as `frontend/node_modules/`
-- any scratch output in `.artifacts/`
 
 ## License
 
