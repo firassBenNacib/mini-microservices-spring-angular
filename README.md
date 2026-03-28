@@ -232,7 +232,7 @@ Use GitHub repository or environment **Variables** for non-sensitive configurati
 Use GitHub **Secrets** only for sensitive values:
 
 - `DOCKERHUB_TOKEN`
-- `SNYK_TOKEN` (required to enable the Snyk workflow)
+- `SNYK_TOKEN` (required to enable the dependency-security workflow's Snyk jobs)
 - `SMOKE_AUTH_EMAIL` (optional)
 - `SMOKE_AUTH_PASSWORD` (optional)
 
