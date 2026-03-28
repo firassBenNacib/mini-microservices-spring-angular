@@ -2,7 +2,6 @@ package com.demo.devops.authservice.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +20,7 @@ class UserSeederTest {
   private UserSeeder userSeeder;
 
   @BeforeEach
+  @SuppressWarnings("unused")
   void setUp() {
     userRepository = Mockito.mock(UserRepository.class);
     passwordEncoder = Mockito.mock(PasswordEncoder.class);
