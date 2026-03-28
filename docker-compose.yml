@@ -236,7 +236,7 @@ services:
     mem_limit: "512m"
     logging: *default-logging
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/gateway/health >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/gateway/health >/dev/null 2>&1"]
       interval: 30s
       timeout: 5s
       retries: 3

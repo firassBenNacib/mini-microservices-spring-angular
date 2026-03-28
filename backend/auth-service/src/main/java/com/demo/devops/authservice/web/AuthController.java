@@ -241,7 +241,11 @@ public class AuthController {
   }
 
   private void addCookie(HttpServletResponse response, ResponseCookie cookie) {
-    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    String headerValue = cookie.toString();
+    if (headerValue.indexOf('\r') >= 0 || headerValue.indexOf('\n') >= 0) {
+      throw new IllegalArgumentException("cookie header must not contain CR/LF");
+    }
+    response.addHeader(HttpHeaders.SET_COOKIE, headerValue);
   }
 
   private String readCookie(HttpServletRequest request, String name) {
