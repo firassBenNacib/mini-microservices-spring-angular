@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload dependency scan SARIF
         if: always() && hashFiles('trivy-dependencies.sarif') != ''
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4
         with:
           sarif_file: trivy-dependencies.sarif
           category: dependency-review
@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload Snyk SARIF
         if: always() && hashFiles('snyk-open-source.sarif') != ''
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4
         with:
           sarif_file: snyk-open-source.sarif
           category: snyk-open-source
